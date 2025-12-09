@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { searchWines, analyzeLabel } from './services/geminiService';
 import { Wine, SearchState } from './types';
 import WineCard from './components/WineCard';
@@ -26,6 +26,12 @@ const WineGlassIcon = () => (
   </svg>
 );
 
+const DownloadIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+  </svg>
+);
+
 export default function App() {
   const [state, setState] = useState<SearchState>({
     query: '',
@@ -36,6 +42,34 @@ export default function App() {
   });
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [selectedWine, setSelectedWine] = useState<Wine | null>(null);
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      // Prevent the mini-infobar from appearing on mobile
+      e.preventDefault();
+      // Stash the event so it can be triggered later.
+      setInstallPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!installPrompt) return;
+    // Show the install prompt
+    installPrompt.prompt();
+    // Wait for the user to respond to the prompt
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') {
+      console.log('User accepted the install prompt');
+      setInstallPrompt(null);
+    }
+  };
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,11 +102,9 @@ export default function App() {
     try {
       const wines = await analyzeLabel(imageBase64);
       if (wines.length > 0) {
-        // Feature clé : On utilise la photo capturée comme image de la bouteille
-        // Cela permet d'afficher la "vraie" bouteille que l'utilisateur a devant lui
         const winesWithImage = wines.map(w => ({
             ...w,
-            imageUrl: imageBase64 // Injecte la photo prise
+            imageUrl: imageBase64 
         }));
 
         setState(prev => ({ 
@@ -82,7 +114,6 @@ export default function App() {
             query: wines[0].name 
         }));
         
-        // Ouvre directement le premier résultat
         setSelectedWine(winesWithImage[0]);
       } else {
         setState(prev => ({ 
@@ -109,6 +140,19 @@ export default function App() {
       
       {/* Header / Hero */}
       <header className="relative bg-white border-b border-stone-200 pt-16 pb-12 px-4 shadow-sm">
+        {/* PWA Install Button (Visible only if installable) */}
+        {installPrompt && (
+          <div className="absolute top-4 right-4 animate-fade-in">
+             <button
+               onClick={handleInstallClick}
+               className="flex items-center gap-2 bg-stone-900 text-white px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide hover:bg-wine-900 transition-colors shadow-lg"
+             >
+               <DownloadIcon />
+               Installer l'App
+             </button>
+          </div>
+        )}
+
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center justify-center p-3 bg-wine-50 rounded-full mb-6 text-wine-900 border border-wine-100">
             <WineGlassIcon />
