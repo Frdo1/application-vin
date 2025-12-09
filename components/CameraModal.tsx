@@ -38,12 +38,15 @@ const CameraModal: React.FC<CameraModalProps> = ({ isOpen, onClose, onCapture })
   const startCamera = async () => {
     try {
       setError(null);
-      // Demande la résolution maximale possible (4K idealement)
+      // Utilisation de 1080p (Full HD) pour un meilleur équilibre netteté/vitesse
+      // La 4K peut causer des problèmes de focus ou de lag sur certains appareils
       const constraints: MediaStreamConstraints = {
         video: { 
           facingMode: 'environment',
-          width: { ideal: 3840 },
-          height: { ideal: 2160 }
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          // @ts-ignore - focusMode is not in standard types yet
+          advanced: [{ focusMode: 'continuous' }]
         }
       };
 
@@ -56,7 +59,7 @@ const CameraModal: React.FC<CameraModalProps> = ({ isOpen, onClose, onCapture })
 
       // Vérifier si le flash (torch) est disponible
       const track = stream.getVideoTracks()[0];
-      const capabilities = track.getCapabilities() as any; // Cast as any because TS sometimes misses 'torch' in capabilities
+      const capabilities = track.getCapabilities() as any; 
       if (capabilities && capabilities.torch) {
         setHasTorch(true);
       } else {
@@ -65,7 +68,7 @@ const CameraModal: React.FC<CameraModalProps> = ({ isOpen, onClose, onCapture })
 
     } catch (err) {
       console.log("Camera error", err);
-      setError("Impossible d'accéder à la caméra haute définition. Essayez l'import.");
+      setError("Impossible d'accéder à la caméra. Essayez l'import.");
     }
   };
 
@@ -100,8 +103,8 @@ const CameraModal: React.FC<CameraModalProps> = ({ isOpen, onClose, onCapture })
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        // Compression légère JPEG 0.9 pour garder les détails du texte
-        const imageBase64 = canvas.toDataURL('image/jpeg', 0.9);
+        // Qualité JPEG élevée (0.95) pour l'analyse texte
+        const imageBase64 = canvas.toDataURL('image/jpeg', 0.95);
         onCapture(imageBase64);
       }
     }
@@ -162,13 +165,13 @@ const CameraModal: React.FC<CameraModalProps> = ({ isOpen, onClose, onCapture })
             {/* Target Guides */}
             {!error && (
                 <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center">
-                    <div className="w-[70%] h-[50%] border-2 border-white/50 rounded-xl relative box-shadow-camera">
+                    <div className="w-[85%] h-[55%] border-2 border-white/60 rounded-xl relative box-shadow-camera">
                         <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-wine-500 -mt-1 -ml-1"></div>
                         <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-wine-500 -mt-1 -mr-1"></div>
                         <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-wine-500 -mb-1 -ml-1"></div>
                         <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-wine-500 -mb-1 -mr-1"></div>
                         <div className="absolute inset-0 flex items-center justify-center">
-                             <p className="text-white/70 text-xs font-bold uppercase tracking-widest bg-black/30 px-2 py-1 rounded">Aligner l'étiquette</p>
+                             <p className="text-white/80 text-xs font-bold uppercase tracking-widest bg-black/40 px-3 py-1 rounded backdrop-blur-sm">Cadrer l'étiquette</p>
                         </div>
                     </div>
                 </div>

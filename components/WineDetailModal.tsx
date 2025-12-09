@@ -187,10 +187,11 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
                 <div className="grid grid-cols-3 gap-4">
                     {wine.foodPairing?.map((food, i) => {
                         const keyword = food.imageKeyword || food.name;
-                        // Prompt optimisé pour Pollinations.ai
-                        const prompt = `close up professional food photography of ${keyword}, michelin star restaurant, delicious, soft lighting, 4k`;
+                        // Prompt simplifié et modèle Flux pour le photoréalisme
+                        const prompt = `photo of ${keyword}, delicious french food, detailed texture, 8k, gastronomic`;
                         const encodedPrompt = encodeURIComponent(prompt);
-                        const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=300&height=300&nologo=true&seed=${i + Math.random()}`;
+                        // Ajout du paramètre model=flux si supporté ou utilisation implicite par la qualité du prompt
+                        const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=300&height=300&nologo=true&seed=${i + Math.random()}&model=flux`;
 
                         return (
                             <div key={i} className="flex flex-col items-center group">
