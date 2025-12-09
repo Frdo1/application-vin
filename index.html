@@ -29,9 +29,9 @@
                 500: '#f05252',
                 600: '#e02424',
                 700: '#c81e1e',
-                800: '#9b1c1c', // Deep Red
+                800: '#9b1c1c',
                 900: '#771d1d',
-                950: '#450a0a', // Bordeaux dark
+                950: '#450a0a',
               }
             }
           }
@@ -41,16 +41,15 @@
     <style>
       body {
         margin: 0;
-        background-color: #fdfbf7; /* Off-white paper color */
+        background-color: #fdfbf7;
         color: #1c1917;
         font-family: 'Lato', sans-serif;
         -webkit-tap-highlight-color: transparent;
-        overscroll-behavior-y: none; /* Prevents pull-to-refresh on mobile app feel */
+        overscroll-behavior-y: none;
       }
       .font-serif {
         font-family: 'Playfair Display', serif;
       }
-      /* Hide scrollbar for PWA feel */
       ::-webkit-scrollbar {
         width: 0px;
         background: transparent;
@@ -59,15 +58,18 @@
   <script type="importmap">
 {
   "imports": {
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.32.0",
-    "react/": "https://aistudiocdn.com/react@^19.2.1/",
     "react": "https://aistudiocdn.com/react@^19.2.1",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/"
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.32.0",
+    "vite": "https://aistudiocdn.com/vite@^7.2.7",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.2"
   }
 }
 </script>
 </head>
   <body>
     <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>
