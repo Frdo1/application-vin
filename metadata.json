@@ -1,0 +1,7 @@
+{
+  "name": "Le Sommelier IA",
+  "description": "Un moteur de recherche intelligent pour les vins français, propulsé par Gemini.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
