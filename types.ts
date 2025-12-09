@@ -1,3 +1,4 @@
+
 export type WineType = 'Rouge' | 'Blanc' | 'Rosé' | 'Champagne' | 'Effervescent' | 'Vin Doux';
 
 export interface FoodPairing {
@@ -33,40 +34,4 @@ export interface SearchState {
   isLoading: boolean;
   error: string | null;
   hasSearched: boolean;
-}
-
-export enum GameState {
-  START = 'START',
-  PLAYING = 'PLAYING',
-  GAME_OVER = 'GAME_OVER'
-}
-
-export interface Player {
-  x: number;
-  y: number;
-  radius: number;
-  speed: number;
-  color: string;
-  angle: number;
-}
-
-export interface Entity {
-  id: number;
-  x: number;
-  y: number;
-  radius: number;
-  speed: number;
-  color: string;
-}
-
-export interface Particle {
-  id: number;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  maxLife: number;
-  color: string;
-  size: number;
 }
