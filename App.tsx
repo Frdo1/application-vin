@@ -80,11 +80,18 @@ export default function App() {
     try {
       const wines = await searchWines(state.query);
       setState(prev => ({ ...prev, results: wines, isLoading: false }));
-    } catch (error) {
+    } catch (error: any) {
+      console.error("App Error:", error);
+      let message = "Une erreur est survenue lors de la consultation du sommelier.";
+      
+      if (error.message === "MISSING_API_KEY") {
+        message = "Configuration manquante : Clé API non trouvée. Veuillez configurer la variable 'API_KEY' dans Vercel et redéployer.";
+      }
+
       setState(prev => ({ 
         ...prev, 
         isLoading: false, 
-        error: "Une erreur est survenue lors de la consultation du sommelier." 
+        error: message
       }));
     }
   };
@@ -122,11 +129,15 @@ export default function App() {
             error: "Je n'ai pas réussi à lire l'étiquette. Vérifiez la luminosité." 
         }));
       }
-    } catch (error) {
+    } catch (error: any) {
+      let message = "Erreur lors de l'analyse visuelle.";
+      if (error.message === "MISSING_API_KEY") {
+        message = "Configuration requise : Clé API manquante sur Vercel.";
+      }
       setState(prev => ({ 
         ...prev, 
         isLoading: false, 
-        error: "Erreur lors de l'analyse visuelle." 
+        error: message
       }));
     }
   };
@@ -220,7 +231,8 @@ export default function App() {
       <main className="flex-grow container mx-auto px-4 py-12 max-w-6xl">
         
         {state.error && (
-            <div className="text-center p-8 bg-red-50 text-red-800 rounded-lg border border-red-100 max-w-2xl mx-auto">
+            <div className="text-center p-8 bg-red-50 text-red-800 rounded-lg border border-red-100 max-w-2xl mx-auto shadow-sm">
+                <p className="font-bold mb-2">Oups !</p>
                 <p>{state.error}</p>
             </div>
         )}

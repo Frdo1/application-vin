@@ -2,9 +2,13 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { Wine } from "../types";
 
+// Cette variable est injectée par Vite au moment du build depuis Vercel
 const apiKey = process.env.API_KEY || '';
 
-const ai = new GoogleGenAI({ apiKey });
+let ai: GoogleGenAI | null = null;
+if (apiKey) {
+  ai = new GoogleGenAI({ apiKey });
+}
 
 // Schema strict uniquement pour l'analyse d'image (Vision)
 const wineSchema: Schema = {
@@ -70,6 +74,11 @@ const extractJSON = (text: string): any => {
       if (arrayMatch) {
         return JSON.parse(arrayMatch[0]);
       }
+       // Tentative 4: Extraction du premier objet { ... } si ce n'est pas un tableau
+       const objectMatch = text.match(/\{([\s\S]*?)\}/);
+       if (objectMatch) {
+         return [JSON.parse(objectMatch[0])]; // On retourne un tableau pour l'uniformité
+       }
     } catch (e2) {
       console.error("Echec extraction JSON:", e2);
     }
@@ -78,7 +87,10 @@ const extractJSON = (text: string): any => {
 };
 
 export const searchWines = async (query: string): Promise<Wine[]> => {
-  if (!apiKey) throw new Error("Clé API manquante.");
+  if (!apiKey || !ai) {
+    console.error("API Key is missing in searchWines");
+    throw new Error("MISSING_API_KEY");
+  }
 
   try {
     // Pour la recherche, on utilise Google Search pour trouver des vraies infos et images
@@ -134,12 +146,15 @@ export const searchWines = async (query: string): Promise<Wine[]> => {
 
   } catch (error) {
     console.error("Erreur Sommelier Search:", error);
-    throw new Error("Le sommelier est momentanément indisponible.");
+    throw error; // Propager l'erreur pour la gérer dans l'UI
   }
 };
 
 export const analyzeLabel = async (imageBase64: string): Promise<Wine[]> => {
-  if (!apiKey) throw new Error("Clé API manquante.");
+  if (!apiKey || !ai) {
+    console.error("API Key is missing in analyzeLabel");
+    throw new Error("MISSING_API_KEY");
+  }
 
   try {
     // Pour l'analyse d'image, on garde le mode Schema strict car on analyse l'image fournie
