@@ -80,9 +80,11 @@ const WineCard: React.FC<WineCardProps> = ({ wine, index, onClick }) => {
            </div>
         )}
         
-        {/* Price Tag Overlay */}
-        <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-serif font-bold text-wine-900 shadow-sm border border-stone-200 z-20">
-          {wine.priceRange}
+        {/* Price Tag Overlay - HIGH VISIBILITY UPDATE */}
+        <div className="absolute top-4 right-4 z-20">
+          <div className="bg-amber-100/95 backdrop-blur-md px-4 py-2 rounded-xl border-2 border-white shadow-lg flex items-center justify-center transform group-hover:scale-110 transition-transform">
+             <span className="text-amber-900 font-serif font-black text-sm">{wine.priceRange}</span>
+          </div>
         </div>
       </div>
 

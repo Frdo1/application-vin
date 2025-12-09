@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Wine } from '../types';
 
@@ -73,20 +74,28 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
         
         <button 
             onClick={onClose}
-            className="absolute top-4 right-4 z-20 p-2 bg-white/50 backdrop-blur rounded-full hover:bg-white text-stone-800 transition-colors shadow-sm"
+            className="absolute top-4 left-4 md:left-auto md:right-4 z-50 p-2 bg-white/80 backdrop-blur rounded-full hover:bg-white text-stone-800 transition-colors shadow-lg border border-stone-100"
         >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
         </button>
 
-        {/* Left: Visuals */}
-        <div className={`md:w-2/5 relative flex flex-col items-center justify-center p-8 overflow-hidden ${wine.type === 'Rouge' ? 'bg-stone-100' : 'bg-white'}`}>
-            <div className={`absolute top-0 left-0 px-4 py-2 text-xs font-bold uppercase tracking-widest ${getThemeColor(wine.type)} rounded-br-lg shadow-sm z-10`}>
+        {/* Left: Visuals - overflow-visible is KEY here to show the price tag fully */}
+        <div className={`md:w-2/5 relative flex flex-col items-center justify-center p-8 overflow-visible ${wine.type === 'Rouge' ? 'bg-stone-100' : 'bg-white'}`}>
+            <div className={`absolute top-0 left-0 px-4 py-2 text-xs font-bold uppercase tracking-widest ${getThemeColor(wine.type)} rounded-br-lg shadow-md z-10`}>
                 {wine.type}
             </div>
+
+            {/* PRIX EN HAUT - High Visibility Overlay - Fixed Clipping & Z-Index */}
+            <div className="absolute top-4 right-4 z-50">
+                 <div className="bg-[#fff8e1] px-5 py-3 rounded-xl border-2 border-amber-200 shadow-2xl flex flex-col items-center animate-bounce-in transform hover:scale-105 transition-transform">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-amber-800/80 leading-none mb-1">Prix Estimé</span>
+                    <span className="text-amber-900 font-serif font-black text-2xl leading-none">{wine.priceRange}</span>
+                 </div>
+            </div>
             
-             <div className="relative w-full h-64 md:h-96 flex items-center justify-center">
+             <div className="relative w-full h-64 md:h-96 flex items-center justify-center mt-6 md:mt-0 z-0">
                 {wine.imageUrl ? (
                      <img src={wine.imageUrl} alt={wine.name} className="h-full object-contain drop-shadow-2xl" />
                 ) : (
@@ -101,14 +110,10 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
                     </svg>
                 )}
              </div>
-
-             <div className="mt-8 bg-white border border-stone-200 px-6 py-2 rounded-full font-serif font-bold text-xl text-stone-800 shadow-sm">
-                {wine.priceRange}
-             </div>
         </div>
 
         {/* Right: Details */}
-        <div className="md:w-3/5 p-6 md:p-10 bg-[#fdfbf7] flex flex-col gap-8">
+        <div className="md:w-3/5 p-6 md:p-10 bg-[#fdfbf7] flex flex-col gap-8 relative z-10">
             
             <div>
                 <h2 className="text-3xl md:text-4xl font-serif font-bold text-stone-900 leading-tight mb-2">
@@ -186,12 +191,19 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
                 </h3>
                 <div className="grid grid-cols-3 gap-4">
                     {wine.foodPairing?.map((food, i) => {
+                        // Utilisation du mot-clé anglais généré par Gemini
                         const keyword = food.imageKeyword || food.name;
+                        
+                        // Seed stable basé sur le nom du plat pour permettre le cache
+                        // On crée un hash simple du nom pour avoir un seed consistant
+                        const seed = keyword.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                        
                         // Prompt simplifié et modèle Flux pour le photoréalisme
                         const prompt = `photo of ${keyword}, delicious french food, detailed texture, 8k, gastronomic`;
                         const encodedPrompt = encodeURIComponent(prompt);
-                        // Ajout du paramètre model=flux si supporté ou utilisation implicite par la qualité du prompt
-                        const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=300&height=300&nologo=true&seed=${i + Math.random()}&model=flux`;
+                        
+                        // URL stable (sans Math.random)
+                        const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=300&height=300&nologo=true&seed=${seed}&model=flux`;
 
                         return (
                             <div key={i} className="flex flex-col items-center group">
