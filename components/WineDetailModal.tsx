@@ -1,12 +1,62 @@
 
 import React, { useState } from 'react';
-import { Wine } from '../types';
+import { Wine, FoodPairing } from '../types';
 
 interface WineDetailModalProps {
   wine: Wine | null;
   isOpen: boolean;
   onClose: () => void;
 }
+
+// Sous-composant pour gérer le chargement individuel de chaque image
+const FoodPairingItem: React.FC<{ food: FoodPairing }> = ({ food }) => {
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [hasError, setHasError] = useState(false);
+
+  // Utilisation du mot-clé anglais généré par Gemini
+  const keyword = food.imageKeyword || food.name;
+  
+  // Seed stable basé sur le nom du plat pour permettre le cache
+  const seed = keyword.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  
+  // Prompt simplifié et modèle Flux pour le photoréalisme
+  const prompt = `photo of ${keyword}, delicious french food, detailed texture, 8k, gastronomic`;
+  const encodedPrompt = encodeURIComponent(prompt);
+  
+  // URL stable (sans Math.random)
+  const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=300&height=300&nologo=true&seed=${seed}&model=flux`;
+
+  return (
+    <div className="flex flex-col items-center group">
+        <div className="w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden shadow-md border-2 border-white mb-2 relative bg-stone-200">
+            {/* Spinner de chargement */}
+            {!isLoaded && !hasError && (
+                <div className="absolute inset-0 flex items-center justify-center bg-stone-100">
+                    <div className="w-6 h-6 border-2 border-wine-200 border-t-wine-600 rounded-full animate-spin"></div>
+                </div>
+            )}
+            
+            <img 
+                src={imageUrl} 
+                alt={food.name}
+                className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
+                onLoad={() => setIsLoaded(true)}
+                onError={() => { setIsLoaded(true); setHasError(true); }}
+            />
+            
+            {/* Fallback si erreur */}
+            {hasError && (
+                <div className="absolute inset-0 flex items-center justify-center bg-stone-100 text-stone-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+            )}
+        </div>
+        <p className="text-xs text-center font-bold text-stone-700 leading-tight capitalize max-w-[80px]">{food.name}</p>
+    </div>
+  );
+};
 
 const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose }) => {
   if (!isOpen || !wine) return null;
@@ -81,13 +131,13 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
             </svg>
         </button>
 
-        {/* Left: Visuals - overflow-visible is KEY here to show the price tag fully */}
+        {/* Left: Visuals */}
         <div className={`md:w-2/5 relative flex flex-col items-center justify-center p-8 overflow-visible ${wine.type === 'Rouge' ? 'bg-stone-100' : 'bg-white'}`}>
             <div className={`absolute top-0 left-0 px-4 py-2 text-xs font-bold uppercase tracking-widest ${getThemeColor(wine.type)} rounded-br-lg shadow-md z-10`}>
                 {wine.type}
             </div>
 
-            {/* PRIX EN HAUT - High Visibility Overlay - Fixed Clipping & Z-Index */}
+            {/* PRIX EN HAUT - High Visibility Overlay */}
             <div className="absolute top-4 right-4 z-50">
                  <div className="bg-[#fff8e1] px-5 py-3 rounded-xl border-2 border-amber-200 shadow-2xl flex flex-col items-center animate-bounce-in transform hover:scale-105 transition-transform">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-amber-800/80 leading-none mb-1">Prix Estimé</span>
@@ -190,35 +240,9 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
                     <span className="h-px bg-stone-200 flex-grow"></span>
                 </h3>
                 <div className="grid grid-cols-3 gap-4">
-                    {wine.foodPairing?.map((food, i) => {
-                        // Utilisation du mot-clé anglais généré par Gemini
-                        const keyword = food.imageKeyword || food.name;
-                        
-                        // Seed stable basé sur le nom du plat pour permettre le cache
-                        // On crée un hash simple du nom pour avoir un seed consistant
-                        const seed = keyword.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-                        
-                        // Prompt simplifié et modèle Flux pour le photoréalisme
-                        const prompt = `photo of ${keyword}, delicious french food, detailed texture, 8k, gastronomic`;
-                        const encodedPrompt = encodeURIComponent(prompt);
-                        
-                        // URL stable (sans Math.random)
-                        const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=300&height=300&nologo=true&seed=${seed}&model=flux`;
-
-                        return (
-                            <div key={i} className="flex flex-col items-center group">
-                                <div className="w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden shadow-md border-2 border-white mb-2 relative bg-stone-200">
-                                    <img 
-                                        src={imageUrl} 
-                                        alt={food.name}
-                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                                        loading="lazy"
-                                    />
-                                </div>
-                                <p className="text-xs text-center font-bold text-stone-700 leading-tight capitalize">{food.name}</p>
-                            </div>
-                        );
-                    })}
+                    {wine.foodPairing?.map((food, i) => (
+                        <FoodPairingItem key={i} food={food} />
+                    ))}
                 </div>
             </div>
 

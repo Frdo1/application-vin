@@ -1,5 +1,6 @@
+
 // Service Worker pour Le Sommelier IA
-const CACHE_NAME = 'sommelier-ia-v3';
+const CACHE_NAME = 'sommelier-ia-v4';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -21,7 +22,7 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Ignorer les requêtes non-http (ex: chrome-extension)
+  // Ignorer les requêtes non-http
   if (!event.request.url.startsWith('http')) return;
   
   // Stratégie Stale-While-Revalidate
@@ -29,13 +30,14 @@ self.addEventListener('fetch', (event) => {
     caches.open(CACHE_NAME).then((cache) => {
       return cache.match(event.request).then((cachedResponse) => {
         const fetchPromise = fetch(event.request).then((networkResponse) => {
-          // Mettre en cache seulement les réponses valides (status 200)
-          if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+          // MODIFICATION CRITIQUE : 
+          // On autorise 'basic' (fichiers internes) ET 'cors' (images externes IA/Google)
+          if (networkResponse && networkResponse.status === 200 && (networkResponse.type === 'basic' || networkResponse.type === 'cors')) {
              cache.put(event.request, networkResponse.clone());
           }
           return networkResponse;
         }).catch(() => {
-           // Erreur réseau (offline), on ne fait rien
+           // Erreur réseau (offline)
         });
         
         // Retourner le cache s'il existe, sinon attendre le réseau
