@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { Wine } from '../types';
 
 interface WineDetailModalProps {
@@ -32,10 +31,8 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
     }
   };
 
-  // Graphique Apogée (CSS)
+  // Graphique Apogée
   const renderAgingGraph = () => {
-    // Une barre de 0 à 15 ans.
-    // PeakStart et PeakEnd définissent la zone "idéale".
     const maxYears = 15;
     const startPct = Math.min((wine.peakStart || 0) / maxYears * 100, 100);
     const endPct = Math.min((wine.peakEnd || 5) / maxYears * 100, 100);
@@ -49,13 +46,11 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
                 <span>Vieux</span>
             </div>
             <div className="relative h-4 bg-stone-200 rounded-full w-full overflow-hidden">
-                {/* Background gradient grid */}
                 <div className="absolute inset-0 grid grid-cols-3 divide-x divide-white/20">
                     <div className="bg-stone-300/30"></div>
                     <div className="bg-stone-300/30"></div>
                     <div className="bg-stone-300/30"></div>
                 </div>
-                {/* The Peak Bar */}
                 <div 
                     className="absolute h-full bg-gradient-to-r from-wine-400 to-wine-700 shadow-md rounded-full opacity-90"
                     style={{ left: `${startPct}%`, width: `${Math.max(widthPct, 5)}%` }}
@@ -72,13 +67,10 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-4">
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
 
-      {/* Modal Card */}
       <div className="relative w-full h-full md:h-auto md:max-h-[90vh] md:max-w-4xl bg-[#fdfbf7] md:rounded-2xl shadow-2xl overflow-y-auto flex flex-col md:flex-row animate-in fade-in zoom-in duration-300">
         
-        {/* Close Button */}
         <button 
             onClick={onClose}
             className="absolute top-4 right-4 z-20 p-2 bg-white/50 backdrop-blur rounded-full hover:bg-white text-stone-800 transition-colors shadow-sm"
@@ -94,7 +86,6 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
                 {wine.type}
             </div>
             
-            {/* Bottle Image (Real or Generated) */}
              <div className="relative w-full h-64 md:h-96 flex items-center justify-center">
                 {wine.imageUrl ? (
                      <img src={wine.imageUrl} alt={wine.name} className="h-full object-contain drop-shadow-2xl" />
@@ -111,16 +102,14 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
                 )}
              </div>
 
-             {/* Price Tag */}
              <div className="mt-8 bg-white border border-stone-200 px-6 py-2 rounded-full font-serif font-bold text-xl text-stone-800 shadow-sm">
                 {wine.priceRange}
              </div>
         </div>
 
-        {/* Right: Details (The "Fiche") */}
+        {/* Right: Details */}
         <div className="md:w-3/5 p-6 md:p-10 bg-[#fdfbf7] flex flex-col gap-8">
             
-            {/* Header */}
             <div>
                 <h2 className="text-3xl md:text-4xl font-serif font-bold text-stone-900 leading-tight mb-2">
                     {wine.name}
@@ -132,7 +121,6 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
                 </div>
             </div>
 
-            {/* Tasting Notes */}
             <div className="bg-white p-6 rounded-xl border border-stone-100 shadow-sm">
                 <h3 className="font-serif text-xl font-bold text-stone-800 mb-3 border-b border-stone-100 pb-2">Dégustation</h3>
                 <p className="text-stone-600 italic mb-4 leading-relaxed">"{wine.description}"</p>
@@ -157,7 +145,6 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
                 </div>
             </div>
 
-            {/* Service & Aging */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <h3 className="font-serif text-lg font-bold text-stone-800 mb-2">Service</h3>
@@ -186,13 +173,12 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
                 </div>
             </div>
             
-            {/* Apogée Graph */}
             <div>
                  <h3 className="font-serif text-lg font-bold text-stone-800">Potentiel de Garde</h3>
                  {renderAgingGraph()}
             </div>
 
-            {/* Food Pairings with Pollinations AI Photos */}
+            {/* Food Pairings */}
             <div>
                 <h3 className="font-serif text-lg font-bold text-stone-800 mb-4 flex items-center gap-2">
                     <span>Accords Gourmands</span>
@@ -200,8 +186,9 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
                 </h3>
                 <div className="grid grid-cols-3 gap-4">
                     {wine.foodPairing?.map((food, i) => {
-                        // Génération d'un prompt pour Pollinations AI pour avoir une photo "Gastronomique"
-                        const prompt = `professional gastronomic food photography of ${food.name} ${food.imageKeyword}, michelin star plating, elegant, soft cinematic lighting, 8k, highly detailed`;
+                        const keyword = food.imageKeyword || food.name;
+                        // Prompt optimisé pour Pollinations.ai
+                        const prompt = `close up professional food photography of ${keyword}, michelin star restaurant, delicious, soft lighting, 4k`;
                         const encodedPrompt = encodeURIComponent(prompt);
                         const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=300&height=300&nologo=true&seed=${i + Math.random()}`;
 
@@ -215,7 +202,7 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
                                         loading="lazy"
                                     />
                                 </div>
-                                <p className="text-xs text-center font-bold text-stone-700 leading-tight">{food.name}</p>
+                                <p className="text-xs text-center font-bold text-stone-700 leading-tight capitalize">{food.name}</p>
                             </div>
                         );
                     })}

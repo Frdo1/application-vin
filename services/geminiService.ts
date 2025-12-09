@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { Wine } from "../types";
 
@@ -41,8 +40,8 @@ const wineSchema: Schema = {
       items: { 
         type: Type.OBJECT,
         properties: {
-          name: { type: Type.STRING, description: "Nom du plat." },
-          imageKeyword: { type: Type.STRING, description: "Mot clé anglais simple pour photo (ex: steak)." }
+          name: { type: Type.STRING, description: "Nom du plat en Français." },
+          imageKeyword: { type: Type.STRING, description: "ENGLISH name of the dish for image generation (e.g. 'Roasted Chicken' not 'Poulet Rôti')." }
         }
       }, 
       description: "3 accords mets-vins." 
@@ -101,8 +100,9 @@ export const searchWines = async (query: string): Promise<Wine[]> => {
       
       Tâche :
       1. Trouve les vins correspondants.
-      2. Pour chaque vin, utilise Google Search pour trouver une URL d'image valide de la BOUTEILLE ENTIERE ou de l'ÉTIQUETTE seule (fond blanc si possible). Priorité à une image claire où on lit le nom.
+      2. Pour chaque vin, utilise Google Search pour trouver une URL d'image valide de la BOUTEILLE ENTIERE ou de l'ÉTIQUETTE seule (fond blanc si possible). Priorité à une image claire.
       3. Retourne un tableau JSON pur contenant les détails.
+      4. IMPORTANT : Pour 'foodPairing', le champ 'name' doit être en Français, mais 'imageKeyword' DOIT être en ANGLAIS (ex: 'Beef Stew' pour 'Boeuf Bourguignon').
 
       Format JSON attendu (strictement ce format, sans texte autour) :
       [
@@ -115,7 +115,7 @@ export const searchWines = async (query: string): Promise<Wine[]> => {
           "priceRange": "20-30€",
           "description": "Description courte et élégante",
           "tastingNotes": { "nose": ["Arôme 1"], "mouth": ["Saveur 1"] },
-          "foodPairing": [{ "name": "Plat", "imageKeyword": "food_name_in_english" }],
+          "foodPairing": [{ "name": "Plat", "imageKeyword": "english_dish_name" }],
           "bestVintages": ["2015", "2019"],
           "agingPotential": "10 ans",
           "peakStart": 3,
@@ -131,8 +131,6 @@ export const searchWines = async (query: string): Promise<Wine[]> => {
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        // Note: responseSchema et responseMimeType ne sont PAS utilisés avec googleSearch
-        // On compte sur le prompt pour avoir du JSON
       },
     });
 
@@ -160,8 +158,14 @@ export const analyzeLabel = async (imageBase64: string): Promise<Wine[]> => {
     // Pour l'analyse d'image, on garde le mode Schema strict car on analyse l'image fournie
     // L'image affichée sera celle capturée par l'utilisateur (gérée dans App.tsx)
     const prompt = `
-      Analyse cette étiquette de vin. Identifie le vin (Nom, Domaine, Millésime, Appellation).
-      Retourne un objet JSON unique très détaillé correspondant à ce vin exact.
+      Analyse cette étiquette de vin avec une extrême précision.
+      Identifie : le Nom exact, le Domaine/Château, le Millésime, l'Appellation.
+      
+      Génère ensuite une fiche de dégustation complète et imagée.
+      
+      IMPORTANT:
+      - Pour 'foodPairing', 'imageKeyword' DOIT être le nom du plat en ANGLAIS (ex: 'Oysters' pour 'Huîtres').
+      - Sois créatif et précis sur les notes de dégustation.
     `;
 
     const cleanBase64 = imageBase64.split(',')[1] || imageBase64;
@@ -184,7 +188,8 @@ export const analyzeLabel = async (imageBase64: string): Promise<Wine[]> => {
     });
 
     const jsonText = response.text || "[]";
-    return JSON.parse(jsonText) as Wine[];
+    const result = JSON.parse(jsonText);
+    return Array.isArray(result) ? result : [result];
 
   } catch (error) {
     console.error("Erreur Analyse Image:", error);
