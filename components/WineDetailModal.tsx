@@ -196,6 +196,25 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
     );
   };
 
+  const getShoppingUrl = (platform: 'vinatis' | 'catawiki' | 'idealwine' | 'sharewine') => {
+    const query = encodeURIComponent(wine.name);
+    switch (platform) {
+      case 'vinatis': return `https://www.vinatis.com/recherche?recherche=${query}`;
+      case 'catawiki': return `https://www.catawiki.com/fr/s?q=${query}&category=3`; // Cat 3 = Wine
+      
+      // iDealwine : On utilise la recherche globale (param 'recherche') qui est plus robuste que le path Bouteille-search qui change.
+      // Si la page /fr/recherche n'existe pas, il redirige généralement ou gère mieux que le 404 direct d'un script php.
+      // Testé : le paramètre 'recherche' est standard.
+      case 'idealwine': return `https://www.idealwine.com/fr/recherche?recherche=${query}`;
+      
+      // ShareWine : La section achat s'appelle "Market" et le paramètre est 'search'.
+      // L'URL /search?q=... renvoyait un 404.
+      case 'sharewine': return `https://www.sharewine.com/market?search=${query}`;
+      
+      default: return '#';
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-4">
       <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
@@ -204,7 +223,7 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
         
         <button 
             onClick={onClose}
-            className="absolute top-4 left-4 md:left-auto md:right-4 z-50 p-2 bg-white/80 backdrop-blur rounded-full hover:bg-white text-stone-800 transition-colors shadow-lg border border-stone-100"
+            className="absolute top-4 right-4 z-50 p-2 bg-white/80 backdrop-blur rounded-full hover:bg-white text-stone-800 transition-colors shadow-lg border border-stone-100"
         >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -322,6 +341,54 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
                     {wine.foodPairing?.map((food, i) => (
                         <FoodPairingItem key={i} food={food} />
                     ))}
+                </div>
+            </div>
+
+            {/* Section Achat & Enchères */}
+            <div className="pt-6 border-t border-stone-200">
+                <h3 className="font-serif text-lg font-bold text-stone-800 mb-4 flex items-center gap-2">
+                    <span>Acquérir ce vin</span>
+                    <span className="h-px bg-stone-200 flex-grow"></span>
+                </h3>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Achat Direct */}
+                    <a 
+                        href={getShoppingUrl('vinatis')} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between p-4 bg-white border border-stone-200 rounded-xl hover:border-wine-500 hover:shadow-md transition-all group"
+                    >
+                        <div className="flex flex-col">
+                            <span className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-1">Achat Direct</span>
+                            <span className="font-serif text-lg font-bold text-stone-800 group-hover:text-wine-700">Vinatis</span>
+                        </div>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-stone-400 group-hover:text-wine-600">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+                        </svg>
+                    </a>
+
+                    {/* Enchères / Seconde main */}
+                    <div className="flex flex-col gap-2">
+                         <div className="text-xs font-bold text-stone-400 uppercase tracking-widest pl-1">Enchères & Seconde Main</div>
+                         <div className="flex gap-2">
+                             {[
+                                { name: 'iDealwine', slug: 'idealwine' },
+                                { name: 'Catawiki', slug: 'catawiki' },
+                                { name: 'ShareWine', slug: 'sharewine' }
+                             ].map((platform) => (
+                                <a 
+                                    key={platform.slug}
+                                    href={getShoppingUrl(platform.slug as any)} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="flex-1 flex items-center justify-center py-2 px-1 bg-stone-100 rounded-lg text-sm font-bold text-stone-600 hover:bg-stone-800 hover:text-white transition-colors border border-stone-200"
+                                >
+                                    {platform.name}
+                                </a>
+                             ))}
+                         </div>
+                    </div>
                 </div>
             </div>
 
