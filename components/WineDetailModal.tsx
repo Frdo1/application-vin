@@ -82,35 +82,130 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
     }
   };
 
-  // Graphique Apogée
+  // Graphique Courbe de Vieillissement (SVG)
   const renderAgingGraph = () => {
-    const maxYears = 15;
-    const startPct = Math.min((wine.peakStart || 0) / maxYears * 100, 100);
-    const endPct = Math.min((wine.peakEnd || 5) / maxYears * 100, 100);
-    const widthPct = endPct - startPct;
+    // Configuration de l'échelle
+    // On prend l'année de fin d'apogée + 5 ans (ou min 15 ans) pour avoir l'échelle totale
+    const maxYears = Math.max((wine.peakEnd || 10) + 5, 15);
+    
+    // Coordonnées X (pourcentage 0-100)
+    const startX = 0;
+    const peakStartX = (wine.peakStart || 3) / maxYears * 100;
+    const peakEndX = (wine.peakEnd || 8) / maxYears * 100;
+    const endX = 100;
+
+    // Coordonnées Y (0 = haut, 100 = bas dans le SVG)
+    const bottomY = 100;
+    const topY = 20; // Hauteur du plateau d'apogée
+    const midY = 60; // Hauteur intermédiaire
+
+    // Construction du chemin SVG (Courbe de Bézier)
+    // M: MoveTo, C: Cubic Bezier, L: LineTo, V: Vertical Line, H: Horizontal Line, Z: Close Path
+    // La courbe monte doucement, fait un plateau, puis redescend
+    const pathData = `
+      M ${startX} ${bottomY}
+      C ${peakStartX / 2} ${bottomY}, ${peakStartX / 2} ${topY}, ${peakStartX} ${topY}
+      H ${peakEndX}
+      C ${peakEndX + (endX - peakEndX) / 2} ${topY}, ${peakEndX + (endX - peakEndX) / 2} ${bottomY}, ${endX} ${bottomY}
+      V ${bottomY} H ${startX} Z
+    `;
+
+    // Chemin pour la ligne de contour (stroke) uniquement le haut
+    const strokePathData = `
+      M ${startX} ${bottomY}
+      C ${peakStartX / 2} ${bottomY}, ${peakStartX / 2} ${topY}, ${peakStartX} ${topY}
+      H ${peakEndX}
+      C ${peakEndX + (endX - peakEndX) / 2} ${topY}, ${peakEndX + (endX - peakEndX) / 2} ${bottomY}, ${endX} ${bottomY}
+    `;
 
     return (
-        <div className="mt-4">
-            <div className="flex justify-between text-xs text-stone-500 uppercase font-bold mb-1">
-                <span>Jeune</span>
-                <span>Apogée</span>
-                <span>Vieux</span>
+        <div className="mt-6 select-none">
+            {/* Légende phases */}
+            <div className="flex justify-between text-[10px] text-stone-400 uppercase font-bold tracking-wider mb-2 px-1">
+                <span>Jeunesse</span>
+                <span className="text-wine-700">Maturité / Apogée</span>
+                <span>Déclin</span>
             </div>
-            <div className="relative h-4 bg-stone-200 rounded-full w-full overflow-hidden">
-                <div className="absolute inset-0 grid grid-cols-3 divide-x divide-white/20">
-                    <div className="bg-stone-300/30"></div>
-                    <div className="bg-stone-300/30"></div>
-                    <div className="bg-stone-300/30"></div>
+
+            <div className="relative h-32 w-full">
+                {/* SVG Graph */}
+                <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <defs>
+                        <linearGradient id="agingGradient" x1="0" x2="1" y1="0" y2="0">
+                            <stop offset="0%" stopColor="#d6d3d1" stopOpacity="0.4" />
+                            <stop offset={`${peakStartX}%`} stopColor="#eab308" stopOpacity="0.6" />
+                            <stop offset={`${peakEndX}%`} stopColor="#9b1c1c" stopOpacity="0.8" />
+                            <stop offset="100%" stopColor="#78350f" stopOpacity="0.4" />
+                        </linearGradient>
+                    </defs>
+                    
+                    {/* Zone remplie */}
+                    <path d={pathData} fill="url(#agingGradient)" />
+                    
+                    {/* Ligne courbe */}
+                    <path d={strokePathData} fill="none" stroke="#a8a29e" strokeWidth="1" strokeDasharray="2 2" />
+                    <path d={strokePathData} fill="none" stroke="#78350f" strokeWidth="2" strokeOpacity="0.1" />
+                    
+                    {/* Lignes verticales repères */}
+                    <line x1={peakStartX} y1={topY} x2={peakStartX} y2={100} stroke="#9b1c1c" strokeWidth="0.5" strokeDasharray="2" opacity="0.5"/>
+                    <line x1={peakEndX} y1={topY} x2={peakEndX} y2={100} stroke="#9b1c1c" strokeWidth="0.5" strokeDasharray="2" opacity="0.5"/>
+                </svg>
+
+                {/* Emojis positionnés en absolu sur la courbe */}
+                {/* 1. Départ (Raisin) */}
+                <div className="absolute bottom-0 left-0 -ml-2 mb-[-5px] bg-white rounded-full shadow-sm p-1 border border-stone-100">
+                    <span className="text-lg leading-none" role="img" aria-label="raisin">🍇</span>
                 </div>
+
+                {/* 2. Montée (Jeune) */}
                 <div 
-                    className="absolute h-full bg-gradient-to-r from-wine-400 to-wine-700 shadow-md rounded-full opacity-90"
-                    style={{ left: `${startPct}%`, width: `${Math.max(widthPct, 5)}%` }}
-                ></div>
+                    className="absolute" 
+                    style={{ left: `${peakStartX / 1.5}%`, top: '40%' }}
+                >
+                    <span className="text-xl drop-shadow-md animate-pulse" role="img" aria-label="yum">😋</span>
+                </div>
+
+                {/* 3. Sommet (Apogée) */}
+                <div 
+                    className="absolute transform -translate-x-1/2 -translate-y-1/2" 
+                    style={{ left: `${peakStartX + (peakEndX - peakStartX) / 2}%`, top: '10%' }}
+                >
+                    <div className="bg-white/90 backdrop-blur px-2 py-1 rounded-full shadow-lg border border-wine-100 flex flex-col items-center">
+                        <span className="text-2xl animate-bounce" role="img" aria-label="love">😍</span>
+                        <span className="text-[9px] font-bold text-wine-800 uppercase whitespace-nowrap">Le Top !</span>
+                    </div>
+                </div>
+
+                {/* 4. Fin (Déclin) */}
+                <div 
+                     className="absolute" 
+                     style={{ left: `${peakEndX + (100 - peakEndX) / 2}%`, top: '60%' }}
+                >
+                    <span className="text-lg opacity-80" role="img" aria-label="old">🥀</span>
+                </div>
+
             </div>
-            <div className="flex justify-between text-[10px] text-stone-400 mt-1">
-                <span>0 ans</span>
-                <span>{wine.agingPotential}</span>
-                <span>15+ ans</span>
+
+            {/* Axe temporel */}
+            <div className="relative h-px bg-stone-300 mt-0 w-full"></div>
+            <div className="relative w-full h-6">
+                <span className="absolute left-0 text-[10px] font-bold text-stone-500 mt-1">0 an</span>
+                
+                <span 
+                    className="absolute text-[10px] font-bold text-wine-800 mt-1 transform -translate-x-1/2"
+                    style={{ left: `${peakStartX}%` }}
+                >
+                    {wine.peakStart} ans
+                </span>
+                
+                <span 
+                    className="absolute text-[10px] font-bold text-wine-800 mt-1 transform -translate-x-1/2"
+                    style={{ left: `${peakEndX}%` }}
+                >
+                    {wine.peakEnd} ans
+                </span>
+
+                <span className="absolute right-0 text-[10px] font-bold text-stone-400 mt-1">{maxYears}+ ans</span>
             </div>
         </div>
     );
