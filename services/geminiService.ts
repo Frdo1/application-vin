@@ -33,7 +33,7 @@ const jsonStructureReference = `
     "peakStart": 5,
     "peakEnd": 20,
     "servingTemp": "16-18°C",
-    "imageUrl": "URL image si trouvée via Search"
+    "imageUrl": ""
   }
 ]
 `;
@@ -67,6 +67,15 @@ const extractJSON = (text: string): any => {
   }
 };
 
+// Helper pour générer une image si l'IA n'en trouve pas
+const generateFallbackImage = (wineName: string): string => {
+  // On nettoie le nom pour la recherche
+  const cleanName = wineName.replace(/[^\w\s]/gi, '').trim();
+  const query = encodeURIComponent(`${cleanName} bouteille vin`);
+  // Service de thumbnailing robuste (Bing) qui ne nécessite pas de clé API côté client pour des usages basiques
+  return `https://tse2.mm.bing.net/th?q=${query}&w=500&h=700&c=7&rs=1&p=0`;
+};
+
 export const searchWines = async (query: string): Promise<Wine[]> => {
   if (!apiKey || !ai) {
     console.error("API Key is missing in searchWines");
@@ -81,9 +90,8 @@ export const searchWines = async (query: string): Promise<Wine[]> => {
       
       Instructions :
       1. Identifie les vins correspondants (max 4).
-      2. Utilise Google Search pour trouver une image de la bouteille (Packshot fond blanc ou Studio préféré).
-      3. Retourne les détails techniques précis (Cépages exacts, Prix marché actuel).
-      4. Pour 'foodPairing', propose des accords précis et gastronomiques (ex: préferer 'Sole Meunière' à 'Poisson').
+      2. Retourne les détails techniques précis (Cépages exacts, Prix marché actuel).
+      3. Pour 'foodPairing', propose des accords précis et gastronomiques (ex: préferer 'Sole Meunière' à 'Poisson').
 
       IMPORTANT : Tu DOIS répondre UNIQUEMENT avec un tableau JSON respectant cette structure :
       ${jsonStructureReference}
@@ -99,10 +107,18 @@ export const searchWines = async (query: string): Promise<Wine[]> => {
       },
     });
 
-    const wines = extractJSON(response.text || "[]");
+    const parsedData = extractJSON(response.text || "[]");
     
-    if (Array.isArray(wines)) {
-        return wines as Wine[];
+    if (Array.isArray(parsedData)) {
+        // Post-traitement pour garantir les images
+        return parsedData.map((wine: any) => {
+            // Si l'IA n'a pas renvoyé d'URL valide (ce qui est fréquent en mode JSON), on utilise le générateur
+            const hasValidImage = wine.imageUrl && wine.imageUrl.startsWith('http');
+            return {
+                ...wine,
+                imageUrl: hasValidImage ? wine.imageUrl : generateFallbackImage(wine.name)
+            };
+        }) as Wine[];
     }
     return [];
 
@@ -145,7 +161,6 @@ export const analyzeLabel = async (imageBase64: string): Promise<Wine[]> => {
       },
       config: {
         tools: [{ googleSearch: {} }],
-        // NOTE: responseMimeType et responseSchema sont SUPPRIMÉS car incompatibles avec googleSearch.
       },
     });
 

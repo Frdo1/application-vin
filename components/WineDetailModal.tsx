@@ -109,6 +109,9 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
       C ${peakEndX + (endX - peakEndX) / 2} ${topY}, ${peakEndX + (endX - peakEndX) / 2} ${bottomY}, ${endX} ${bottomY}
     `;
 
+    // Logique anti-chevauchement : Si le début de l'apogée est dans les premiers 15%, on cache le "0 an"
+    const isStartTooClose = peakStartX < 15;
+
     return (
         <div className="mt-6 select-none">
             {/* Légende phases */}
@@ -176,17 +179,20 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
             {/* Axe temporel */}
             <div className="relative h-px bg-stone-300 mt-0 w-full"></div>
             <div className="relative w-full h-6">
-                <span className="absolute left-0 text-[10px] font-bold text-stone-500 mt-1">0 an</span>
+                {/* On cache le '0 an' si le premier pic est trop proche pour éviter le chevauchement */}
+                {!isStartTooClose && (
+                    <span className="absolute left-0 text-[10px] font-bold text-stone-500 mt-1">0 an</span>
+                )}
                 
                 <span 
-                    className="absolute text-[10px] font-bold text-wine-800 mt-1 transform -translate-x-1/2"
+                    className="absolute text-[10px] font-bold text-wine-800 mt-1 transform -translate-x-1/2 z-10"
                     style={{ left: `${peakStartX}%` }}
                 >
                     {wine.peakStart} ans
                 </span>
                 
                 <span 
-                    className="absolute text-[10px] font-bold text-wine-800 mt-1 transform -translate-x-1/2"
+                    className="absolute text-[10px] font-bold text-wine-800 mt-1 transform -translate-x-1/2 z-10"
                     style={{ left: `${peakEndX}%` }}
                 >
                     {wine.peakEnd} ans
@@ -197,19 +203,28 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
   };
 
   const getShoppingUrl = (platform: 'vinatis' | 'catawiki' | 'idealwine' | 'sharewine') => {
-    const query = encodeURIComponent(wine.name);
+    // Nettoyage du nom pour améliorer la pertinence de la recherche sur les sites marchands.
+    // On enlève "AOC", "IGP" et les espaces superflus qui peuvent fausser les moteurs de recherche interne.
+    const cleanName = wine.name.replace(/\b(AOC|IGP|AOP|Vin de France)\b/gi, '').trim();
+    const query = encodeURIComponent(cleanName);
+
     switch (platform) {
-      case 'vinatis': return `https://www.vinatis.com/recherche?recherche=${query}`;
-      case 'catawiki': return `https://www.catawiki.com/fr/s?q=${query}&category=3`; // Cat 3 = Wine
+      case 'vinatis': 
+        // Vinatis : Recherche textuelle précise pour tomber sur le vin (ou ses millésimes)
+        return `https://www.vinatis.com/recherche?recherche=${query}`;
+
+      case 'catawiki': 
+        // Catawiki : Recherche filtrée par catégorie Vins (category=3)
+        return `https://www.catawiki.com/fr/s?q=${query}&category=3`;
       
-      // iDealwine : On utilise la recherche globale (param 'recherche') qui est plus robuste que le path Bouteille-search qui change.
-      // Si la page /fr/recherche n'existe pas, il redirige généralement ou gère mieux que le 404 direct d'un script php.
-      // Testé : le paramètre 'recherche' est standard.
-      case 'idealwine': return `https://www.idealwine.com/fr/recherche?recherche=${query}`;
+      case 'idealwine': 
+        // iDealwine : On pointe vers la recherche globale (/recherche) qui liste les enchères disponibles.
+        // C'est le point d'entrée le plus fiable pour voir les lots "Enchères" et "Achat Direct" pour un vin donné.
+        return `https://www.idealwine.com/fr/recherche?recherche=${query}`;
       
-      // ShareWine : La section achat s'appelle "Market" et le paramètre est 'search'.
-      // L'URL /search?q=... renvoyait un 404.
-      case 'sharewine': return `https://www.sharewine.com/market?search=${query}`;
+      case 'sharewine': 
+        // ShareWine : Section "Market" qui regroupe toutes les ventes (Enchères et Achat immédiat)
+        return `https://www.sharewine.com/market?search=${query}`;
       
       default: return '#';
     }

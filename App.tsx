@@ -1,11 +1,34 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { searchWines, analyzeLabel } from './services/geminiService';
 import { Wine, SearchState } from './types';
 import WineCard from './components/WineCard';
 import WineDetailModal from './components/WineDetailModal';
 import CameraModal from './components/CameraModal';
 import GameCanvas from './components/GameCanvas';
+
+// Base de données locale pour l'autocomplétion (Top Vins & Appellations France)
+const POPULAR_WINES = [
+  "Château Margaux", "Petrus", "Romanée-Conti", "Château d'Yquem",
+  "Château Lafite Rothschild", "Château Latour", "Château Haut-Brion",
+  "Château Cheval Blanc", "Château Mouton Rothschild", "Château Ausone",
+  "Château Angélus", "Château Pavie", "Château Palmer", "Château Lynch-Bages",
+  "Château Pontet-Canet", "Château Montrose", "Château Cos d'Estournel",
+  "Domaine Leflaive", "Domaine Leroy", "Domaine de la Romanée-Conti",
+  "E. Guigal", "M. Chapoutier", "Louis Jadot", "Joseph Drouhin",
+  "Bollinger", "Dom Pérignon", "Krug", "Roederer Cristal", "Salon",
+  "Taittinger Comtes de Champagne", "Pol Roger Sir Winston Churchill",
+  "Chablis Grand Cru", "Meursault", "Puligny-Montrachet", "Corton-Charlemagne",
+  "Montrachet", "Chambertin", "Musigny", "Richebourg", "La Tâche",
+  "Clos de Vougeot", "Echézeaux", "Pommard", "Volnay", "Nuits-Saint-Georges",
+  "Gevrey-Chambertin", "Vosne-Romanée", "Châteauneuf-du-Pape", "Côte-Rôtie",
+  "Hermitage", "Cornas", "Condrieu", "Saint-Joseph", "Crozes-Hermitage",
+  "Bandol", "Sancerre", "Pouilly-Fumé", "Chinon", "Saumur-Champigny",
+  "Vouvray", "Alsace Grand Cru", "Gewurztraminer", "Riesling",
+  "Jura Vin Jaune", "Château-Chalon", "Pessac-Léognan", "Saint-Émilion",
+  "Pomerol", "Sauternes", "Margaux", "Pauillac", "Saint-Estèphe", "Saint-Julien",
+  "Champagne", "Provence Rosé", "Tavel", "Morgon", "Moulin-à-Vent"
+];
 
 // Icons
 const SearchIcon = () => (
@@ -51,27 +74,36 @@ export default function App() {
   const [isGameOpen, setIsGameOpen] = useState(false);
   const [selectedWine, setSelectedWine] = useState<Wine | null>(null);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
+  
+  // State pour l'autocomplétion
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const suggestionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
-      // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
-      // Stash the event so it can be triggered later.
       setInstallPrompt(e);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
+    // Click outside to close suggestions
+    const handleClickOutside = (event: MouseEvent) => {
+      if (suggestionRef.current && !suggestionRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
   const handleInstallClick = async () => {
     if (!installPrompt) return;
-    // Show the install prompt
     installPrompt.prompt();
-    // Wait for the user to respond to the prompt
     const { outcome } = await installPrompt.userChoice;
     if (outcome === 'accepted') {
       console.log('User accepted the install prompt');
@@ -82,6 +114,7 @@ export default function App() {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!state.query.trim() && state.hasSearched) return;
+    setShowSuggestions(false); // Cache les suggestions au lancement
 
     setState(prev => ({ ...prev, isLoading: true, error: null, hasSearched: true }));
     
@@ -152,7 +185,24 @@ export default function App() {
 
   const handleSuggestionClick = (suggestion: string) => {
     setState(prev => ({ ...prev, query: suggestion }));
+    setShowSuggestions(false);
   };
+
+  // Calcul des suggestions filtrées avec une logique "Commence par" stricte sur les mots
+  const filteredSuggestions = state.query.length > 1
+    ? POPULAR_WINES.filter(w => {
+        const query = state.query.toLowerCase();
+        const name = w.toLowerCase();
+        
+        // 1. Match exact du début de la chaîne (Prioritaire)
+        if (name.startsWith(query)) return true;
+
+        // 2. Match du début d'un mot (ex: "Margaux" dans "Château Margaux")
+        // On split sur espaces, tirets et apostrophes pour trouver les débuts de mots
+        const words = name.split(/[\s'-]+/);
+        return words.some(word => word.startsWith(query));
+      }).slice(0, 5) // Limiter à 5 suggestions
+    : [];
 
   return (
     <div className="min-h-screen flex flex-col bg-stone-50 selection:bg-wine-200 selection:text-wine-900">
@@ -195,14 +245,19 @@ export default function App() {
             Découvrez les trésors du vignoble français. Décrivez vos envies ou scannez une étiquette.
           </p>
 
-          <form onSubmit={handleSearch} className="relative max-w-2xl mx-auto">
+          <form onSubmit={handleSearch} className="relative max-w-2xl mx-auto z-30">
             <div className="relative flex items-center">
                 <input
-                type="text"
-                value={state.query}
-                onChange={(e) => setState(prev => ({ ...prev, query: e.target.value }))}
-                placeholder="Décrivez un vin..."
-                className="w-full pl-6 pr-24 py-4 text-lg bg-white border-2 border-stone-200 rounded-full shadow-sm focus:outline-none focus:border-wine-500 focus:ring-4 focus:ring-wine-50 transition-all placeholder:text-stone-300 text-stone-800"
+                  type="text"
+                  value={state.query}
+                  onChange={(e) => {
+                    setState(prev => ({ ...prev, query: e.target.value }));
+                    setShowSuggestions(true);
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
+                  placeholder="Décrivez un vin..."
+                  className="w-full pl-6 pr-24 py-4 text-lg bg-white border-2 border-stone-200 rounded-full shadow-sm focus:outline-none focus:border-wine-500 focus:ring-4 focus:ring-wine-50 transition-all placeholder:text-stone-300 text-stone-800"
+                  autoComplete="off"
                 />
                 
                 <div className="absolute right-2 flex gap-1 items-center">
@@ -229,6 +284,30 @@ export default function App() {
                     </button>
                 </div>
             </div>
+
+            {/* Suggestions Dropdown */}
+            {showSuggestions && filteredSuggestions.length > 0 && (
+              <div ref={suggestionRef} className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-stone-100 overflow-hidden animate-fade-in z-50">
+                <ul>
+                  {filteredSuggestions.map((suggestion, index) => (
+                    <li key={index}>
+                      <button
+                        type="button"
+                        onClick={() => handleSuggestionClick(suggestion)}
+                        className="w-full text-left px-6 py-3 hover:bg-stone-50 text-stone-700 font-serif border-b border-stone-50 last:border-0 transition-colors flex items-center gap-3"
+                      >
+                         <span className="text-stone-300">
+                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                           </svg>
+                         </span>
+                         {suggestion}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </form>
 
           {!state.hasSearched && (
