@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { Wine } from "../types";
 
 // Cette variable est injectée par Vite au moment du build depuis Vercel
@@ -10,52 +10,33 @@ if (apiKey) {
   ai = new GoogleGenAI({ apiKey });
 }
 
-// Schema strict pour structurer la réponse de l'IA
-const wineSchema: Schema = {
-  type: Type.OBJECT,
-  properties: {
-    name: { type: Type.STRING, description: "Nom complet du vin ou du domaine incluant la Cuvée." },
-    region: { type: Type.STRING, description: "Région viticole précise (ex: Bordeaux, Saint-Estèphe)." },
-    appellation: { type: Type.STRING, description: "AOC ou appellation spécifique." },
-    type: { 
-      type: Type.STRING, 
-      enum: ['Rouge', 'Blanc', 'Rosé', 'Champagne', 'Effervescent', 'Vin Doux'],
-      description: "Couleur ou type de vin."
+// Structure JSON modèle à insérer dans le prompt
+const jsonStructureReference = `
+[
+  {
+    "name": "Nom complet (ex: Château Margaux 2015)",
+    "region": "Région (ex: Bordeaux)",
+    "appellation": "Appellation (ex: Margaux)",
+    "type": "Rouge" | "Blanc" | "Rosé" | "Champagne",
+    "grapeVarieties": ["Cépage 1", "Cépage 2"],
+    "priceRange": "Prix moyen (ex: 450€)",
+    "description": "Description experte.",
+    "tastingNotes": {
+      "nose": ["Arôme 1", "Arôme 2", "Arôme 3"],
+      "mouth": ["Saveur 1", "Saveur 2", "Texture"]
     },
-    grapeVarieties: { 
-      type: Type.ARRAY, 
-      items: { type: Type.STRING }, 
-      description: "Liste des cépages principaux." 
-    },
-    priceRange: { type: Type.STRING, description: "Prix moyen actuel du marché pour ce millésime (ex: 45€)." },
-    description: { type: Type.STRING, description: "Description experte du style du vin et du millésime." },
-    tastingNotes: {
-      type: Type.OBJECT,
-      properties: {
-        nose: { type: Type.ARRAY, items: { type: Type.STRING }, description: "3 arômes précis au nez." },
-        mouth: { type: Type.ARRAY, items: { type: Type.STRING }, description: "3 caractéristiques en bouche (structure, tanins, finale)." }
-      }
-    },
-    foodPairing: { 
-      type: Type.ARRAY, 
-      items: { 
-        type: Type.OBJECT,
-        properties: {
-          name: { type: Type.STRING, description: "Nom du plat gastronomique en Français." },
-          imageKeyword: { type: Type.STRING, description: "ENGLISH name of the dish for image generation (e.g. 'Beef Wellington')." }
-        }
-      }, 
-      description: "3 accords mets-vins parfaits." 
-    },
-    bestVintages: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Ce millésime précis s'il est bon, et 2 autres excellents." },
-    agingPotential: { type: Type.STRING, description: "Potentiel de garde précis pour ce millésime." },
-    peakStart: { type: Type.NUMBER, description: "Année relative début apogée (ex: 5 pour dans 5 ans)." },
-    peakEnd: { type: Type.NUMBER, description: "Année relative fin apogée (ex: 15)." },
-    servingTemp: { type: Type.STRING, description: "Température idéale de service." },
-    imageUrl: { type: Type.STRING, description: "URL d'une image HD si trouvée via Search, sinon vide." }
-  },
-  required: ["name", "region", "type", "description", "priceRange", "foodPairing", "bestVintages", "agingPotential", "servingTemp", "tastingNotes"],
-};
+    "foodPairing": [
+      { "name": "Nom du plat gastronomique précis (ex: Tournedos Rossini)" }
+    ],
+    "bestVintages": ["2015", "2010", "2009"],
+    "agingPotential": "10-20 ans",
+    "peakStart": 5,
+    "peakEnd": 20,
+    "servingTemp": "16-18°C",
+    "imageUrl": "URL image si trouvée via Search"
+  }
+]
+`;
 
 // Helper robuste pour extraire le JSON du texte retourné par Gemini
 const extractJSON = (text: string): any => {
@@ -93,19 +74,19 @@ export const searchWines = async (query: string): Promise<Wine[]> => {
   }
 
   try {
-    // Prompt optimisé pour trouver de belles images
+    // Prompt optimisé pour trouver de belles images avec Google Search
     const prompt = `
       Rôle : Sommelier Expert et Acheteur de Vin.
       Requête : Recherche des informations précises sur "${query}".
       
       Instructions :
       1. Identifie les vins correspondants (max 4).
-      2. Utilise Google Search pour trouver une image de la bouteille. 
-         CRITIQUE : Cherche des images de type "Packshot" ou "Studio" sur fond blanc ou uni, haute résolution. Évite les photos floues d'utilisateurs.
+      2. Utilise Google Search pour trouver une image de la bouteille (Packshot fond blanc ou Studio préféré).
       3. Retourne les détails techniques précis (Cépages exacts, Prix marché actuel).
-      4. Pour 'foodPairing', sois créatif et gastronomique. 'imageKeyword' DOIT être en ANGLAIS.
+      4. Pour 'foodPairing', propose des accords précis et gastronomiques (ex: préferer 'Sole Meunière' à 'Poisson').
 
-      Format de sortie : Tableau JSON uniquement, respectant strictement le schéma fourni implicitement par les exemples précédents.
+      IMPORTANT : Tu DOIS répondre UNIQUEMENT avec un tableau JSON respectant cette structure :
+      ${jsonStructureReference}
     `;
 
     const response = await ai.models.generateContent({
@@ -113,9 +94,8 @@ export const searchWines = async (query: string): Promise<Wine[]> => {
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        responseMimeType: "application/json",
-        // On n'utilise pas responseSchema ici car googleSearch peut parfois interférer avec le mode JSON strict du SDK
-        // On fait confiance au prompt + extractJSON qui est robuste
+        // NOTE: responseMimeType et responseSchema sont SUPPRIMÉS car incompatibles avec googleSearch.
+        // On s'appuie sur le prompt et extractJSON.
       },
     });
 
@@ -140,27 +120,17 @@ export const analyzeLabel = async (imageBase64: string): Promise<Wine[]> => {
 
   try {
     // COMBINAISON VISION + GROUNDING (Google Search)
-    // C'est ici que la magie opère : on lit l'image, puis on cherche les infos réelles sur le web.
     const prompt = `
-      Tâche : Analyse experte d'étiquette de vin.
+      Tâche : Analyse experte d'étiquette de vin à partir de l'image.
       
       Instructions :
-      1. VISION : Lis attentivement l'étiquette sur l'image fournie. Extrais :
-         - Le Nom exact du Domaine / Château.
-         - La Cuvée (si présente).
-         - Le Millésime (L'année est CRUCIALE).
-         - L'Appellation précise.
-      
-      2. RECHERCHE (Grounding) : Utilise ces informations extraites pour chercher sur le Web :
-         - Le PRIX moyen actuel du marché pour CE millésime spécifique.
-         - Les notes de dégustation réelles des critiques pour CE vin.
-         - Le potentiel de garde réel (est-il à son apogée ?).
-      
-      3. SYNTHÈSE : Compile ces informations dans la fiche vin.
-         - Si le millésime est illisible, estime-le ou fournis les infos du millésime récent le plus courant, mais mentionne-le dans la description.
-         - 'foodPairing' : Plat en Français, 'imageKeyword' en Anglais.
+      1. VISION : Lis l'étiquette (Nom, Domaine, Millésime, Appellation).
+      2. RECHERCHE (Grounding) : Cherche sur le Web le PRIX ACTUEL, les notes critiques, et le potentiel de garde pour CE millésime précis.
+      3. SYNTHÈSE : Compile les infos.
+      4. ACCORDS : Propose des plats gastronomiques précis.
 
-      Retourne un JSON Array contenant l'objet vin.
+      IMPORTANT : Tu DOIS répondre UNIQUEMENT avec un tableau JSON respectant cette structure :
+      ${jsonStructureReference}
     `;
 
     const cleanBase64 = imageBase64.split(',')[1] || imageBase64;
@@ -174,18 +144,13 @@ export const analyzeLabel = async (imageBase64: string): Promise<Wine[]> => {
         ]
       },
       config: {
-        tools: [{ googleSearch: {} }], // Activation du Grounding sur l'analyse d'image !
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: wineSchema
-        }
+        tools: [{ googleSearch: {} }],
+        // NOTE: responseMimeType et responseSchema sont SUPPRIMÉS car incompatibles avec googleSearch.
       },
     });
 
-    const jsonText = response.text || "[]";
-    const result = JSON.parse(jsonText);
-    return Array.isArray(result) ? result : [result];
+    const wines = extractJSON(response.text || "[]");
+    return Array.isArray(wines) ? wines : [wines];
 
   } catch (error) {
     console.error("Erreur Analyse Image:", error);

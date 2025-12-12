@@ -13,26 +13,20 @@ const FoodPairingItem: React.FC<{ food: FoodPairing }> = ({ food }) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
 
-  // Utilisation du mot-clé anglais généré par Gemini
-  const keyword = food.imageKeyword || food.name;
-  
-  // Seed stable basé sur le nom du plat pour permettre le cache
-  const seed = keyword.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  
-  // Prompt simplifié pour la vitesse. On retire 'model=flux' pour utiliser le modèle Turbo par défaut (beaucoup plus rapide)
-  const prompt = `yummy ${keyword}, french gastronomy, food photography, photorealistic`;
-  const encodedPrompt = encodeURIComponent(prompt);
-  
-  // URL optimisée pour la vitesse
-  const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=300&height=300&nologo=true&seed=${seed}`;
+  // STRATÉGIE "RECHERCHE INSTANTANÉE" :
+  // Au lieu de générer une image (lent) ou d'utiliser un mot-clé générique (imprécis),
+  // on utilise un service de thumbnail de recherche qui prend le NOM EXACT du plat.
+  // Cela garantit que "Tournedos Rossini" affiche vraiment un Tournedos, instantanément.
+  const searchQuery = encodeURIComponent(`${food.name} plat gastronomique`);
+  const imageUrl = `https://tse2.mm.bing.net/th?q=${searchQuery}&w=300&h=300&c=7&rs=1&p=0`;
 
   return (
-    <div className="flex flex-col items-center group">
-        <div className="w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden shadow-md border-2 border-white mb-2 relative bg-stone-200">
-            {/* Spinner de chargement */}
+    <div className="flex flex-col items-center group cursor-default">
+        <div className="w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden shadow-md border-2 border-white mb-2 relative bg-stone-100 transform group-hover:scale-105 transition-transform duration-300">
+            {/* Spinner de chargement discret */}
             {!isLoaded && !hasError && (
                 <div className="absolute inset-0 flex items-center justify-center bg-stone-100 z-10">
-                    <div className="w-6 h-6 border-2 border-wine-200 border-t-wine-600 rounded-full animate-spin"></div>
+                    <div className="w-5 h-5 border-2 border-stone-200 border-t-wine-600 rounded-full animate-spin"></div>
                 </div>
             )}
             
@@ -40,9 +34,11 @@ const FoodPairingItem: React.FC<{ food: FoodPairing }> = ({ food }) => {
                 <img 
                     src={imageUrl} 
                     alt={food.name}
-                    className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
+                    className={`w-full h-full object-cover transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
                     onLoad={() => setIsLoaded(true)}
                     onError={() => { setIsLoaded(true); setHasError(true); }}
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
                 />
             ) : (
                 /* Fallback visuel élégant (Couverts) si l'image ne charge pas */
@@ -53,7 +49,7 @@ const FoodPairingItem: React.FC<{ food: FoodPairing }> = ({ food }) => {
                 </div>
             )}
         </div>
-        <p className="text-xs text-center font-bold text-stone-700 leading-tight capitalize max-w-[80px]">{food.name}</p>
+        <p className="text-xs text-center font-bold text-stone-700 leading-tight capitalize max-w-[90px] line-clamp-2">{food.name}</p>
     </div>
   );
 };
