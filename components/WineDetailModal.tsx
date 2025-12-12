@@ -1,6 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Wine, FoodPairing } from '../types';
+import { getVintagePrice } from '../services/geminiService';
 
 interface WineDetailModalProps {
   wine: Wine | null;
@@ -55,7 +56,40 @@ const FoodPairingItem: React.FC<{ food: FoodPairing }> = ({ food }) => {
 };
 
 const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose }) => {
+  const [selectedVintage, setSelectedVintage] = useState<string | null>(null);
+  const [vintagePrice, setVintagePrice] = useState<string | null>(null);
+  const [loadingPrice, setLoadingPrice] = useState(false);
+
+  // Reset state when wine changes or modal opens
+  useEffect(() => {
+    setSelectedVintage(null);
+    setVintagePrice(null);
+    setLoadingPrice(false);
+  }, [wine]);
+
   if (!isOpen || !wine) return null;
+
+  const handleVintageClick = async (year: string) => {
+    if (selectedVintage === year) {
+        // Deselect if clicking the same one
+        setSelectedVintage(null);
+        setVintagePrice(null);
+        return;
+    }
+
+    setSelectedVintage(year);
+    setLoadingPrice(true);
+    setVintagePrice(null);
+
+    try {
+        const price = await getVintagePrice(wine.name, year);
+        setVintagePrice(price);
+    } catch (e) {
+        setVintagePrice("N/A");
+    } finally {
+        setLoadingPrice(false);
+    }
+  };
 
   // Helper colors
   const getThemeColor = (type: string) => {
@@ -204,26 +238,34 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
 
   const getShoppingUrl = (platform: 'vinatis' | 'catawiki' | 'sharewine') => {
     // Nettoyage du nom pour améliorer la pertinence de la recherche sur les sites marchands.
-    // On enlève "AOC", "IGP" et les espaces superflus.
-    const cleanName = wine.name.replace(/\b(AOC|IGP|AOP|Vin de France)\b/gi, '').trim();
-    // Normalisation pour l'URL (suppression des accents pour éviter les erreurs d'encodage sur certains vieux backends)
-    const normalizedName = cleanName.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    const query = encodeURIComponent(normalizedName);
+    
+    // 1. On enlève les mentions techniques (AOC, IGP, etc.)
+    let searchTerms = wine.name.replace(/\b(AOC|IGP|AOP|Vin de France)\b/gi, '');
+
+    // 2. CRUCIAL : On enlève le millésime (ex: 2015, 2020) pour la recherche marchand.
+    // Si l'année exacte n'est pas en stock, les moteurs de recherche (surtout Vinatis) renvoient 0 résultat.
+    // En cherchant uniquement le nom du domaine, l'utilisateur tombe sur tous les millésimes disponibles.
+    searchTerms = searchTerms.replace(/\b(19|20)\d{2}\b/g, '');
+
+    // 3. Nettoyage des espaces multiples et trim
+    searchTerms = searchTerms.replace(/\s+/g, ' ').trim();
+
+    // Encodage
+    // Vinatis gère bien les accents, donc on encode directement le nom propre nettoyé.
+    const rawQuery = encodeURIComponent(searchTerms);
+    
+    // Pour d'autres plateformes qui préfèrent sans accents :
+    const normalizedQuery = encodeURIComponent(searchTerms.normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
 
     switch (platform) {
       case 'vinatis': 
-        // Vinatis : Recherche textuelle précise
-        // On utilise encodeURIComponent sur le nom propre pour Vinatis
-        const vinatisQuery = encodeURIComponent(cleanName);
-        return `https://www.vinatis.com/recherche?recherche=${vinatisQuery}`;
+        return `https://www.vinatis.com/recherche?recherche=${rawQuery}`;
 
       case 'catawiki': 
-        // Catawiki : Recherche filtrée par catégorie Vins
-        return `https://www.catawiki.com/fr/s?q=${query}&category=3`;
+        return `https://www.catawiki.com/fr/s?q=${normalizedQuery}&category=3`;
       
       case 'sharewine': 
-        // ShareWine : Utilisation de la recherche globale /search?q=
-        return `https://www.sharewine.com/search?q=${query}`;
+        return `https://www.sharewine.com/search?q=${normalizedQuery}`;
       
       default: return '#';
     }
@@ -250,10 +292,26 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
                 {wine.type}
             </div>
 
-            <div className="absolute top-4 right-4 z-50">
-                 <div className="bg-[#fff8e1] px-5 py-3 rounded-xl border-2 border-amber-200 shadow-2xl flex flex-col items-center animate-bounce-in transform hover:scale-105 transition-transform">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-amber-800/80 leading-none mb-1">Prix Estimé</span>
-                    <span className="text-amber-900 font-serif font-black text-2xl leading-none">{wine.priceRange}</span>
+            <div className="absolute top-4 right-4 z-50 transition-all duration-300">
+                 <div className={`px-5 py-3 rounded-xl border-2 shadow-2xl flex flex-col items-center transform hover:scale-105 transition-all
+                    ${selectedVintage 
+                        ? 'bg-wine-800 border-wine-600 text-white' 
+                        : 'bg-[#fff8e1] border-amber-200 text-amber-900'
+                    }`}
+                 >
+                    <span className={`text-[10px] font-bold uppercase tracking-widest leading-none mb-1 ${selectedVintage ? 'text-wine-100' : 'text-amber-800/80'}`}>
+                        {selectedVintage ? `Cote ${selectedVintage}` : 'Prix Estimé'}
+                    </span>
+                    
+                    {loadingPrice ? (
+                        <div className="h-8 flex items-center justify-center">
+                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        </div>
+                    ) : (
+                        <span className="font-serif font-black text-2xl leading-none">
+                            {selectedVintage && vintagePrice ? vintagePrice : wine.priceRange}
+                        </span>
+                    )}
                  </div>
             </div>
             
@@ -330,11 +388,20 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
                 </div>
                 <div>
                      <h3 className="font-serif text-lg font-bold text-stone-800 mb-2">Millésimes d'Or</h3>
+                     <p className="text-xs text-stone-400 mb-2 italic">Cliquez pour voir la cote</p>
                      <div className="flex flex-wrap gap-1">
                         {wine.bestVintages?.map((year, i) => (
-                            <span key={i} className="px-2 py-1 bg-amber-50 text-amber-900 border border-amber-100 rounded text-xs font-bold">
+                            <button 
+                                key={i}
+                                onClick={() => handleVintageClick(year)}
+                                className={`px-2 py-1 border rounded text-xs font-bold transition-all duration-200
+                                    ${selectedVintage === year 
+                                        ? 'bg-wine-700 text-white border-wine-800 shadow-md scale-105' 
+                                        : 'bg-amber-50 text-amber-900 border-amber-100 hover:bg-amber-100 hover:border-amber-300'
+                                    }`}
+                            >
                                 {year}
-                            </span>
+                            </button>
                         ))}
                      </div>
                 </div>

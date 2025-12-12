@@ -175,3 +175,24 @@ export const analyzeLabel = async (imageBase64: string): Promise<Wine[]> => {
     throw new Error("Impossible d'analyser l'image ou de trouver les informations.");
   }
 };
+
+export const getVintagePrice = async (wineName: string, year: string): Promise<string> => {
+  if (!apiKey || !ai) return "N/A";
+
+  try {
+    const prompt = `
+      Quel est le prix moyen actuel du marché (bouteille 75cl) pour ce vin spécifique : "${wineName}" millésime ${year} ?
+      Réponds UNIQUEMENT par le prix ou une fourchette courte (ex: "125€" ou "120-140€"). Pas de phrase.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+
+    return response.text?.trim() || "Prix inconnu";
+  } catch (error) {
+    console.error("Erreur prix millésime:", error);
+    return "Non disponible";
+  }
+};
