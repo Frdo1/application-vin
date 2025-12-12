@@ -5,6 +5,7 @@ import { Wine, SearchState } from './types';
 import WineCard from './components/WineCard';
 import WineDetailModal from './components/WineDetailModal';
 import CameraModal from './components/CameraModal';
+import GameCanvas from './components/GameCanvas';
 
 // Icons
 const SearchIcon = () => (
@@ -17,6 +18,12 @@ const CameraIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
     <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
     <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
+  </svg>
+);
+
+const GameIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
   </svg>
 );
 
@@ -41,6 +48,7 @@ export default function App() {
     hasSearched: false,
   });
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isGameOpen, setIsGameOpen] = useState(false);
   const [selectedWine, setSelectedWine] = useState<Wine | null>(null);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
 
@@ -153,7 +161,7 @@ export default function App() {
       <header className="relative bg-white border-b border-stone-200 pt-16 pb-12 px-4 shadow-sm">
         {/* PWA Install Button (Visible only if installable) */}
         {installPrompt && (
-          <div className="absolute top-4 right-4 animate-fade-in">
+          <div className="absolute top-4 right-4 animate-fade-in z-40">
              <button
                onClick={handleInstallClick}
                className="flex items-center gap-2 bg-stone-900 text-white px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide hover:bg-wine-900 transition-colors shadow-lg"
@@ -163,6 +171,18 @@ export default function App() {
              </button>
           </div>
         )}
+        
+        {/* Game Button */}
+        <div className="absolute top-4 left-4 animate-fade-in z-40">
+             <button
+               onClick={() => setIsGameOpen(true)}
+               className="flex items-center gap-2 bg-stone-100 text-stone-600 px-3 py-2 rounded-full text-xs font-bold uppercase tracking-wide hover:bg-wine-100 hover:text-wine-700 transition-colors border border-stone-200"
+               title="Jeu de la Vendange"
+             >
+               <GameIcon />
+               <span className="hidden sm:inline">Jeu</span>
+             </button>
+        </div>
 
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center justify-center p-3 bg-wine-50 rounded-full mb-6 text-wine-900 border border-wine-100">
@@ -282,6 +302,11 @@ export default function App() {
         isOpen={!!selectedWine}
         wine={selectedWine}
         onClose={() => setSelectedWine(null)}
+      />
+
+      <GameCanvas
+        isOpen={isGameOpen}
+        onClose={() => setIsGameOpen(false)}
       />
     </div>
   );
