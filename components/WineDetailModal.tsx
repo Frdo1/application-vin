@@ -202,7 +202,7 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
     );
   };
 
-  const getShoppingUrl = (platform: 'vinatis' | 'catawiki' | 'idealwine' | 'sharewine') => {
+  const getShoppingUrl = (platform: 'vinatis' | 'catawiki' | 'sharewine') => {
     // Nettoyage du nom pour améliorer la pertinence de la recherche sur les sites marchands.
     // On enlève "AOC", "IGP" et les espaces superflus.
     const cleanName = wine.name.replace(/\b(AOC|IGP|AOP|Vin de France)\b/gi, '').trim();
@@ -220,11 +220,6 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
       case 'catawiki': 
         // Catawiki : Recherche filtrée par catégorie Vins
         return `https://www.catawiki.com/fr/s?q=${query}&category=3`;
-      
-      case 'idealwine': 
-        // iDealwine : Mise à jour de l'URL vers /acheter-vin?q=
-        // C'est le nouveau format qui remplace /recherche
-        return `https://www.idealwine.com/fr/acheter-vin?q=${query}&tri=prix_asc`;
       
       case 'sharewine': 
         // ShareWine : Utilisation de la recherche globale /search?q=
@@ -392,7 +387,6 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
                          <div className="text-xs font-bold text-stone-400 uppercase tracking-widest pl-1">Enchères & Seconde Main</div>
                          <div className="flex gap-2">
                              {[
-                                { name: 'iDealwine', slug: 'idealwine' },
                                 { name: 'Catawiki', slug: 'catawiki' },
                                 { name: 'ShareWine', slug: 'sharewine' }
                              ].map((platform) => (

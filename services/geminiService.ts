@@ -83,17 +83,17 @@ export const searchWines = async (query: string): Promise<Wine[]> => {
   }
 
   try {
-    // Prompt optimisé pour trouver de belles images avec Google Search
+    // Prompt optimisé pour la vitesse (Google Search retiré pour gagner ~3s de latence)
     const prompt = `
-      Rôle : Sommelier Expert et Acheteur de Vin.
-      Requête : Recherche des informations précises sur "${query}".
+      Rôle : Sommelier Expert.
+      Tâche : Suggère 3 vins pertinents pour la recherche "${query}".
       
       Instructions :
-      1. Identifie les vins correspondants (max 4).
-      2. Retourne les détails techniques précis (Cépages exacts, Prix marché actuel).
-      3. Pour 'foodPairing', propose des accords précis et gastronomiques (ex: préferer 'Sole Meunière' à 'Poisson').
+      1. Sélectionne les 3 meilleures options.
+      2. Fournis une estimation réaliste du prix.
+      3. Sois précis sur les cépages et les accords mets-vins.
 
-      IMPORTANT : Tu DOIS répondre UNIQUEMENT avec un tableau JSON respectant cette structure :
+      IMPORTANT : Réponds UNIQUEMENT avec un tableau JSON respectant cette structure :
       ${jsonStructureReference}
     `;
 
@@ -101,18 +101,20 @@ export const searchWines = async (query: string): Promise<Wine[]> => {
       model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
-        tools: [{ googleSearch: {} }],
-        // NOTE: responseMimeType et responseSchema sont SUPPRIMÉS car incompatibles avec googleSearch.
-        // On s'appuie sur le prompt et extractJSON.
+        // OPTIMISATION PERFORMANCE :
+        // 1. Suppression de 'tools: [{ googleSearch: {} }]' pour la recherche textuelle simple.
+        //    Le modèle 2.5-Flash est assez rapide et compétent pour les connaissances générales sur le vin sans recherche web.
+        // 2. Activation du 'responseMimeType: application/json' pour garantir la structure et la vitesse de parsing.
+        responseMimeType: 'application/json',
+        temperature: 0.7,
       },
     });
 
     const parsedData = extractJSON(response.text || "[]");
     
     if (Array.isArray(parsedData)) {
-        // Post-traitement pour garantir les images
+        // Post-traitement pour garantir les images via le fallback rapide
         return parsedData.map((wine: any) => {
-            // Si l'IA n'a pas renvoyé d'URL valide (ce qui est fréquent en mode JSON), on utilise le générateur
             const hasValidImage = wine.imageUrl && wine.imageUrl.startsWith('http');
             return {
                 ...wine,
@@ -135,7 +137,7 @@ export const analyzeLabel = async (imageBase64: string): Promise<Wine[]> => {
   }
 
   try {
-    // COMBINAISON VISION + GROUNDING (Google Search)
+    // COMBINAISON VISION + GROUNDING (Google Search) conservée pour la précision de l'analyse d'image
     const prompt = `
       Tâche : Analyse experte d'étiquette de vin à partir de l'image.
       
@@ -160,6 +162,7 @@ export const analyzeLabel = async (imageBase64: string): Promise<Wine[]> => {
         ]
       },
       config: {
+        // On garde Google Search ici car l'identification précise d'une étiquette (millésime/domaine) bénéficie grandement du Web.
         tools: [{ googleSearch: {} }],
       },
     });
