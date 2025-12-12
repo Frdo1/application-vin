@@ -19,36 +19,36 @@ const FoodPairingItem: React.FC<{ food: FoodPairing }> = ({ food }) => {
   // Seed stable basé sur le nom du plat pour permettre le cache
   const seed = keyword.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
   
-  // Prompt simplifié et modèle Flux pour le photoréalisme
-  const prompt = `photo of ${keyword}, delicious french food, detailed texture, 8k, gastronomic`;
+  // Prompt simplifié pour la vitesse. On retire 'model=flux' pour utiliser le modèle Turbo par défaut (beaucoup plus rapide)
+  const prompt = `yummy ${keyword}, french gastronomy, food photography, photorealistic`;
   const encodedPrompt = encodeURIComponent(prompt);
   
-  // URL stable (sans Math.random)
-  const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=300&height=300&nologo=true&seed=${seed}&model=flux`;
+  // URL optimisée pour la vitesse
+  const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=300&height=300&nologo=true&seed=${seed}`;
 
   return (
     <div className="flex flex-col items-center group">
         <div className="w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden shadow-md border-2 border-white mb-2 relative bg-stone-200">
             {/* Spinner de chargement */}
             {!isLoaded && !hasError && (
-                <div className="absolute inset-0 flex items-center justify-center bg-stone-100">
+                <div className="absolute inset-0 flex items-center justify-center bg-stone-100 z-10">
                     <div className="w-6 h-6 border-2 border-wine-200 border-t-wine-600 rounded-full animate-spin"></div>
                 </div>
             )}
             
-            <img 
-                src={imageUrl} 
-                alt={food.name}
-                className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
-                onLoad={() => setIsLoaded(true)}
-                onError={() => { setIsLoaded(true); setHasError(true); }}
-            />
-            
-            {/* Fallback si erreur */}
-            {hasError && (
-                <div className="absolute inset-0 flex items-center justify-center bg-stone-100 text-stone-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            {!hasError ? (
+                <img 
+                    src={imageUrl} 
+                    alt={food.name}
+                    className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
+                    onLoad={() => setIsLoaded(true)}
+                    onError={() => { setIsLoaded(true); setHasError(true); }}
+                />
+            ) : (
+                /* Fallback visuel élégant (Couverts) si l'image ne charge pas */
+                <div className="absolute inset-0 flex items-center justify-center bg-stone-100 text-stone-300">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8">
+                        <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm-1.72 6.97a.75.75 0 10-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 101.06 1.06L12 13.06l1.72 1.72a.75.75 0 101.06-1.06L13.06 12l1.72-1.72a.75.75 0 10-1.06-1.06L12 10.94l-1.72-1.72z" clipRule="evenodd" />
                     </svg>
                 </div>
             )}
@@ -85,7 +85,6 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
   // Graphique Courbe de Vieillissement (SVG)
   const renderAgingGraph = () => {
     // Configuration de l'échelle
-    // On prend l'année de fin d'apogée + 5 ans (ou min 15 ans) pour avoir l'échelle totale
     const maxYears = Math.max((wine.peakEnd || 10) + 5, 15);
     
     // Coordonnées X (pourcentage 0-100)
@@ -97,11 +96,8 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
     // Coordonnées Y (0 = haut, 100 = bas dans le SVG)
     const bottomY = 100;
     const topY = 20; // Hauteur du plateau d'apogée
-    const midY = 60; // Hauteur intermédiaire
 
     // Construction du chemin SVG (Courbe de Bézier)
-    // M: MoveTo, C: Cubic Bezier, L: LineTo, V: Vertical Line, H: Horizontal Line, Z: Close Path
-    // La courbe monte doucement, fait un plateau, puis redescend
     const pathData = `
       M ${startX} ${bottomY}
       C ${peakStartX / 2} ${bottomY}, ${peakStartX / 2} ${topY}, ${peakStartX} ${topY}
@@ -110,7 +106,6 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
       V ${bottomY} H ${startX} Z
     `;
 
-    // Chemin pour la ligne de contour (stroke) uniquement le haut
     const strokePathData = `
       M ${startX} ${bottomY}
       C ${peakStartX / 2} ${bottomY}, ${peakStartX / 2} ${topY}, ${peakStartX} ${topY}
@@ -152,12 +147,10 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
                 </svg>
 
                 {/* Emojis positionnés en absolu sur la courbe */}
-                {/* 1. Départ (Raisin) */}
                 <div className="absolute bottom-0 left-0 -ml-2 mb-[-5px] bg-white rounded-full shadow-sm p-1 border border-stone-100">
                     <span className="text-lg leading-none" role="img" aria-label="raisin">🍇</span>
                 </div>
 
-                {/* 2. Montée (Jeune) */}
                 <div 
                     className="absolute" 
                     style={{ left: `${peakStartX / 1.5}%`, top: '40%' }}
@@ -165,7 +158,6 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
                     <span className="text-xl drop-shadow-md animate-pulse" role="img" aria-label="yum">😋</span>
                 </div>
 
-                {/* 3. Sommet (Apogée) */}
                 <div 
                     className="absolute transform -translate-x-1/2 -translate-y-1/2" 
                     style={{ left: `${peakStartX + (peakEndX - peakStartX) / 2}%`, top: '10%' }}
@@ -176,7 +168,6 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
                     </div>
                 </div>
 
-                {/* 4. Fin (Déclin) */}
                 <div 
                      className="absolute" 
                      style={{ left: `${peakEndX + (100 - peakEndX) / 2}%`, top: '60%' }}
@@ -232,7 +223,6 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
                 {wine.type}
             </div>
 
-            {/* PRIX EN HAUT - High Visibility Overlay */}
             <div className="absolute top-4 right-4 z-50">
                  <div className="bg-[#fff8e1] px-5 py-3 rounded-xl border-2 border-amber-200 shadow-2xl flex flex-col items-center animate-bounce-in transform hover:scale-105 transition-transform">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-amber-800/80 leading-none mb-1">Prix Estimé</span>
