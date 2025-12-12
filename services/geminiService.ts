@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { Wine } from "../types";
 
@@ -9,12 +10,12 @@ if (apiKey) {
   ai = new GoogleGenAI({ apiKey });
 }
 
-// Schema strict uniquement pour l'analyse d'image (Vision)
+// Schema strict pour structurer la réponse de l'IA
 const wineSchema: Schema = {
   type: Type.OBJECT,
   properties: {
-    name: { type: Type.STRING, description: "Nom complet du vin ou du domaine." },
-    region: { type: Type.STRING, description: "Région viticole (ex: Bordeaux, Bourgogne)." },
+    name: { type: Type.STRING, description: "Nom complet du vin ou du domaine incluant la Cuvée." },
+    region: { type: Type.STRING, description: "Région viticole précise (ex: Bordeaux, Saint-Estèphe)." },
     appellation: { type: Type.STRING, description: "AOC ou appellation spécifique." },
     type: { 
       type: Type.STRING, 
@@ -26,13 +27,13 @@ const wineSchema: Schema = {
       items: { type: Type.STRING }, 
       description: "Liste des cépages principaux." 
     },
-    priceRange: { type: Type.STRING, description: "Fourchette de prix estimée (ex: 15€ - 25€)." },
-    description: { type: Type.STRING, description: "Description globale élégante." },
+    priceRange: { type: Type.STRING, description: "Prix moyen actuel du marché pour ce millésime (ex: 45€)." },
+    description: { type: Type.STRING, description: "Description experte du style du vin et du millésime." },
     tastingNotes: {
       type: Type.OBJECT,
       properties: {
-        nose: { type: Type.ARRAY, items: { type: Type.STRING }, description: "3 arômes principaux au nez." },
-        mouth: { type: Type.ARRAY, items: { type: Type.STRING }, description: "3 caractéristiques en bouche." }
+        nose: { type: Type.ARRAY, items: { type: Type.STRING }, description: "3 arômes précis au nez." },
+        mouth: { type: Type.ARRAY, items: { type: Type.STRING }, description: "3 caractéristiques en bouche (structure, tanins, finale)." }
       }
     },
     foodPairing: { 
@@ -40,18 +41,18 @@ const wineSchema: Schema = {
       items: { 
         type: Type.OBJECT,
         properties: {
-          name: { type: Type.STRING, description: "Nom du plat en Français." },
-          imageKeyword: { type: Type.STRING, description: "ENGLISH name of the dish for image generation (e.g. 'Roasted Chicken' not 'Poulet Rôti')." }
+          name: { type: Type.STRING, description: "Nom du plat gastronomique en Français." },
+          imageKeyword: { type: Type.STRING, description: "ENGLISH name of the dish for image generation (e.g. 'Beef Wellington')." }
         }
       }, 
-      description: "3 accords mets-vins." 
+      description: "3 accords mets-vins parfaits." 
     },
-    bestVintages: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Meilleurs millésimes récents." },
-    agingPotential: { type: Type.STRING, description: "Potentiel de garde." },
-    peakStart: { type: Type.NUMBER, description: "Début apogée (années)." },
-    peakEnd: { type: Type.NUMBER, description: "Fin apogée (années)." },
-    servingTemp: { type: Type.STRING, description: "Température idéale." },
-    imageUrl: { type: Type.STRING, description: "Laissez vide pour l'analyse d'étiquette." }
+    bestVintages: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Ce millésime précis s'il est bon, et 2 autres excellents." },
+    agingPotential: { type: Type.STRING, description: "Potentiel de garde précis pour ce millésime." },
+    peakStart: { type: Type.NUMBER, description: "Année relative début apogée (ex: 5 pour dans 5 ans)." },
+    peakEnd: { type: Type.NUMBER, description: "Année relative fin apogée (ex: 15)." },
+    servingTemp: { type: Type.STRING, description: "Température idéale de service." },
+    imageUrl: { type: Type.STRING, description: "URL d'une image HD si trouvée via Search, sinon vide." }
   },
   required: ["name", "region", "type", "description", "priceRange", "foodPairing", "bestVintages", "agingPotential", "servingTemp", "tastingNotes"],
 };
@@ -92,38 +93,19 @@ export const searchWines = async (query: string): Promise<Wine[]> => {
   }
 
   try {
-    // Pour la recherche, on utilise Google Search pour trouver des vraies infos et images
+    // Prompt optimisé pour trouver de belles images
     const prompt = `
-      Agis comme un sommelier expert.
-      Recherche sur le web des informations précises sur : "${query}".
-      Si la recherche est vague, propose 4 vins français pertinents.
+      Rôle : Sommelier Expert et Acheteur de Vin.
+      Requête : Recherche des informations précises sur "${query}".
       
-      Tâche :
-      1. Trouve les vins correspondants.
-      2. Pour chaque vin, utilise Google Search pour trouver une URL d'image valide de la BOUTEILLE ENTIERE ou de l'ÉTIQUETTE seule (fond blanc si possible). Priorité à une image claire.
-      3. Retourne un tableau JSON pur contenant les détails.
-      4. IMPORTANT : Pour 'foodPairing', le champ 'name' doit être en Français, mais 'imageKeyword' DOIT être en ANGLAIS (ex: 'Beef Stew' pour 'Boeuf Bourguignon').
+      Instructions :
+      1. Identifie les vins correspondants (max 4).
+      2. Utilise Google Search pour trouver une image de la bouteille. 
+         CRITIQUE : Cherche des images de type "Packshot" ou "Studio" sur fond blanc ou uni, haute résolution. Évite les photos floues d'utilisateurs.
+      3. Retourne les détails techniques précis (Cépages exacts, Prix marché actuel).
+      4. Pour 'foodPairing', sois créatif et gastronomique. 'imageKeyword' DOIT être en ANGLAIS.
 
-      Format JSON attendu (strictement ce format, sans texte autour) :
-      [
-        {
-          "name": "Nom complet du vin",
-          "region": "Région",
-          "appellation": "AOC",
-          "type": "Rouge" | "Blanc" | "Rosé" | "Champagne",
-          "grapeVarieties": ["Cépage 1"],
-          "priceRange": "20-30€",
-          "description": "Description courte et élégante",
-          "tastingNotes": { "nose": ["Arôme 1"], "mouth": ["Saveur 1"] },
-          "foodPairing": [{ "name": "Plat", "imageKeyword": "english_dish_name" }],
-          "bestVintages": ["2015", "2019"],
-          "agingPotential": "10 ans",
-          "peakStart": 3,
-          "peakEnd": 10,
-          "servingTemp": "17°C",
-          "imageUrl": "URL_DE_L_IMAGE_TROUVEE_SUR_LE_WEB"
-        }
-      ]
+      Format de sortie : Tableau JSON uniquement, respectant strictement le schéma fourni implicitement par les exemples précédents.
     `;
 
     const response = await ai.models.generateContent({
@@ -131,12 +113,14 @@ export const searchWines = async (query: string): Promise<Wine[]> => {
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
+        responseMimeType: "application/json",
+        // On n'utilise pas responseSchema ici car googleSearch peut parfois interférer avec le mode JSON strict du SDK
+        // On fait confiance au prompt + extractJSON qui est robuste
       },
     });
 
     const wines = extractJSON(response.text || "[]");
     
-    // Validation basique
     if (Array.isArray(wines)) {
         return wines as Wine[];
     }
@@ -144,7 +128,7 @@ export const searchWines = async (query: string): Promise<Wine[]> => {
 
   } catch (error) {
     console.error("Erreur Sommelier Search:", error);
-    throw error; // Propager l'erreur pour la gérer dans l'UI
+    throw error;
   }
 };
 
@@ -155,17 +139,28 @@ export const analyzeLabel = async (imageBase64: string): Promise<Wine[]> => {
   }
 
   try {
-    // Pour l'analyse d'image, on garde le mode Schema strict car on analyse l'image fournie
-    // L'image affichée sera celle capturée par l'utilisateur (gérée dans App.tsx)
+    // COMBINAISON VISION + GROUNDING (Google Search)
+    // C'est ici que la magie opère : on lit l'image, puis on cherche les infos réelles sur le web.
     const prompt = `
-      Analyse cette étiquette de vin avec une extrême précision.
-      Identifie : le Nom exact, le Domaine/Château, le Millésime, l'Appellation.
+      Tâche : Analyse experte d'étiquette de vin.
       
-      Génère ensuite une fiche de dégustation complète et imagée.
+      Instructions :
+      1. VISION : Lis attentivement l'étiquette sur l'image fournie. Extrais :
+         - Le Nom exact du Domaine / Château.
+         - La Cuvée (si présente).
+         - Le Millésime (L'année est CRUCIALE).
+         - L'Appellation précise.
       
-      IMPORTANT:
-      - Pour 'foodPairing', 'imageKeyword' DOIT être le nom du plat en ANGLAIS (ex: 'Oysters' pour 'Huîtres').
-      - Sois créatif et précis sur les notes de dégustation.
+      2. RECHERCHE (Grounding) : Utilise ces informations extraites pour chercher sur le Web :
+         - Le PRIX moyen actuel du marché pour CE millésime spécifique.
+         - Les notes de dégustation réelles des critiques pour CE vin.
+         - Le potentiel de garde réel (est-il à son apogée ?).
+      
+      3. SYNTHÈSE : Compile ces informations dans la fiche vin.
+         - Si le millésime est illisible, estime-le ou fournis les infos du millésime récent le plus courant, mais mentionne-le dans la description.
+         - 'foodPairing' : Plat en Français, 'imageKeyword' en Anglais.
+
+      Retourne un JSON Array contenant l'objet vin.
     `;
 
     const cleanBase64 = imageBase64.split(',')[1] || imageBase64;
@@ -179,6 +174,7 @@ export const analyzeLabel = async (imageBase64: string): Promise<Wine[]> => {
         ]
       },
       config: {
+        tools: [{ googleSearch: {} }], // Activation du Grounding sur l'analyse d'image !
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.ARRAY,
@@ -193,6 +189,6 @@ export const analyzeLabel = async (imageBase64: string): Promise<Wine[]> => {
 
   } catch (error) {
     console.error("Erreur Analyse Image:", error);
-    throw new Error("Impossible d'analyser l'image.");
+    throw new Error("Impossible d'analyser l'image ou de trouver les informations.");
   }
 };
