@@ -204,27 +204,31 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
 
   const getShoppingUrl = (platform: 'vinatis' | 'catawiki' | 'idealwine' | 'sharewine') => {
     // Nettoyage du nom pour améliorer la pertinence de la recherche sur les sites marchands.
-    // On enlève "AOC", "IGP" et les espaces superflus qui peuvent fausser les moteurs de recherche interne.
+    // On enlève "AOC", "IGP" et les espaces superflus.
     const cleanName = wine.name.replace(/\b(AOC|IGP|AOP|Vin de France)\b/gi, '').trim();
-    const query = encodeURIComponent(cleanName);
+    // Normalisation pour l'URL (suppression des accents pour éviter les erreurs d'encodage sur certains vieux backends)
+    const normalizedName = cleanName.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const query = encodeURIComponent(normalizedName);
 
     switch (platform) {
       case 'vinatis': 
-        // Vinatis : Recherche textuelle précise pour tomber sur le vin (ou ses millésimes)
-        return `https://www.vinatis.com/recherche?recherche=${query}`;
+        // Vinatis : Recherche textuelle précise
+        // On utilise encodeURIComponent sur le nom propre pour Vinatis
+        const vinatisQuery = encodeURIComponent(cleanName);
+        return `https://www.vinatis.com/recherche?recherche=${vinatisQuery}`;
 
       case 'catawiki': 
-        // Catawiki : Recherche filtrée par catégorie Vins (category=3)
+        // Catawiki : Recherche filtrée par catégorie Vins
         return `https://www.catawiki.com/fr/s?q=${query}&category=3`;
       
       case 'idealwine': 
-        // iDealwine : On pointe vers la recherche globale (/recherche) qui liste les enchères disponibles.
-        // C'est le point d'entrée le plus fiable pour voir les lots "Enchères" et "Achat Direct" pour un vin donné.
-        return `https://www.idealwine.com/fr/recherche?recherche=${query}`;
+        // iDealwine : Mise à jour de l'URL vers /acheter-vin?q=
+        // C'est le nouveau format qui remplace /recherche
+        return `https://www.idealwine.com/fr/acheter-vin?q=${query}&tri=prix_asc`;
       
       case 'sharewine': 
-        // ShareWine : Section "Market" qui regroupe toutes les ventes (Enchères et Achat immédiat)
-        return `https://www.sharewine.com/market?search=${query}`;
+        // ShareWine : Utilisation de la recherche globale /search?q=
+        return `https://www.sharewine.com/search?q=${query}`;
       
       default: return '#';
     }

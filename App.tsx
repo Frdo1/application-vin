@@ -188,11 +188,16 @@ export default function App() {
     setShowSuggestions(false);
   };
 
-  // Calcul des suggestions filtrées avec une logique "Commence par" stricte sur les mots
+  // Helper de normalisation (retire les accents)
+  const normalize = (str: string) => {
+    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  };
+
+  // Calcul des suggestions filtrées avec une logique "Commence par" stricte sur les mots ET insensible aux accents
   const filteredSuggestions = state.query.length > 1
     ? POPULAR_WINES.filter(w => {
-        const query = state.query.toLowerCase();
-        const name = w.toLowerCase();
+        const query = normalize(state.query);
+        const name = normalize(w);
         
         // 1. Match exact du début de la chaîne (Prioritaire)
         if (name.startsWith(query)) return true;
