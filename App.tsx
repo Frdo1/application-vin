@@ -230,13 +230,28 @@ export default function App() {
       await processImageAnalysis(item.imageBase64);
   };
 
+  // Ajout / Suppression simple (utilisé depuis la recherche)
   const toggleCellar = (wine: Wine) => {
       const exists = cellar.find(w => w.name === wine.name);
       if (exists) {
           setCellar(prev => prev.filter(w => w.name !== wine.name));
       } else {
-          setCellar(prev => [{...wine, dateAdded: Date.now()}, ...prev]);
+          // Ajout avec quantité 1 par défaut
+          setCellar(prev => [{...wine, dateAdded: Date.now(), quantity: 1}, ...prev]);
       }
+  };
+
+  // Gestion de stock (utilisé depuis la Cave)
+  const updateQuantity = (wine: Wine, change: number) => {
+    setCellar(prev => {
+        return prev.map(w => {
+            if (w.name === wine.name) {
+                const newQty = (w.quantity || 1) + change;
+                return { ...w, quantity: newQty };
+            }
+            return w;
+        }).filter(w => (w.quantity || 0) > 0); // Si la quantité tombe à 0, on retire le vin
+    });
   };
 
   const handleSuggestionClick = (suggestion: string) => {
@@ -259,6 +274,17 @@ export default function App() {
         return words.some(word => word.startsWith(query));
       }).slice(0, 5)
     : [];
+
+  // DASHBOARD CALCULATIONS
+  const totalBottles = cellar.reduce((acc, wine) => acc + (wine.quantity || 1), 0);
+  
+  // Estimation valeur (extraction très basique "45€" -> 45)
+  const totalValue = cellar.reduce((acc, wine) => {
+     const priceString = wine.priceRange || "0";
+     const match = priceString.match(/(\d+)/);
+     const price = match ? parseInt(match[0]) : 0;
+     return acc + (price * (wine.quantity || 1));
+  }, 0);
 
   return (
     <div className="min-h-screen flex flex-col bg-stone-50 selection:bg-wine-200 selection:text-wine-900 pb-24">
@@ -406,6 +432,12 @@ export default function App() {
                                 wine={wine} 
                                 index={index} 
                                 onClick={() => setSelectedWine(wine)}
+                                isInCellar={cellar.some(c => c.name === wine.name)}
+                                onToggleCellar={(e) => {
+                                    e.stopPropagation();
+                                    toggleCellar(wine);
+                                }}
+                                isCellarMode={false}
                             />
                         ))}
                     </div>
@@ -420,12 +452,31 @@ export default function App() {
         </>
       )}
 
-      {/* --- VUE CAVE --- */}
+      {/* --- VUE CAVE (DASHBOARD) --- */}
       {currentView === 'cellar' && (
         <div className="flex-grow container mx-auto px-4 py-8 max-w-6xl animate-fade-in">
-             <header className="mb-8 text-center">
-                 <h1 className="text-4xl font-serif font-bold text-stone-900">Ma Cave</h1>
-                 <p className="text-stone-500 mt-2">{cellar.length} vin{cellar.length > 1 ? 's' : ''} conservé{cellar.length > 1 ? 's' : ''}</p>
+             <header className="mb-8">
+                 <div className="text-center mb-8">
+                     <h1 className="text-4xl font-serif font-bold text-stone-900">Ma Cave</h1>
+                 </div>
+
+                 {/* DASHBOARD STATS */}
+                 {cellar.length > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 max-w-3xl mx-auto mb-10">
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-stone-100 flex flex-col items-center">
+                             <span className="text-xs font-bold text-stone-400 uppercase tracking-widest">Références</span>
+                             <span className="text-2xl font-serif font-bold text-stone-800 mt-1">{cellar.length}</span>
+                        </div>
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-stone-100 flex flex-col items-center">
+                             <span className="text-xs font-bold text-stone-400 uppercase tracking-widest">Bouteilles</span>
+                             <span className="text-2xl font-serif font-bold text-wine-800 mt-1">{totalBottles}</span>
+                        </div>
+                        <div className="col-span-2 md:col-span-1 bg-white p-4 rounded-xl shadow-sm border border-stone-100 flex flex-col items-center">
+                             <span className="text-xs font-bold text-stone-400 uppercase tracking-widest">Valeur Estimée</span>
+                             <span className="text-2xl font-serif font-bold text-stone-800 mt-1">{totalValue} €</span>
+                        </div>
+                    </div>
+                 )}
              </header>
 
              {cellar.length === 0 ? (
@@ -452,6 +503,13 @@ export default function App() {
                             wine={wine} 
                             index={index} 
                             onClick={() => setSelectedWine(wine)}
+                            isInCellar={true}
+                            onToggleCellar={(e) => {
+                                e.stopPropagation();
+                                toggleCellar(wine);
+                            }}
+                            isCellarMode={true}
+                            onUpdateQuantity={(change) => updateQuantity(wine, change)}
                         />
                     ))}
                 </div>
@@ -507,7 +565,7 @@ export default function App() {
       <BottomNav 
         currentView={currentView} 
         onChangeView={setCurrentView} 
-        cellarCount={cellar.length} 
+        cellarCount={totalBottles} 
       />
 
       {/* Modals */}

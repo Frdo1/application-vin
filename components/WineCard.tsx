@@ -6,9 +6,21 @@ interface WineCardProps {
   wine: Wine;
   index: number;
   onClick: () => void;
+  isInCellar: boolean;
+  onToggleCellar: (e: React.MouseEvent) => void;
+  isCellarMode?: boolean;
+  onUpdateQuantity?: (change: number) => void;
 }
 
-const WineCard: React.FC<WineCardProps> = ({ wine, index, onClick }) => {
+const WineCard: React.FC<WineCardProps> = ({ 
+  wine, 
+  index, 
+  onClick, 
+  isInCellar, 
+  onToggleCellar, 
+  isCellarMode = false,
+  onUpdateQuantity 
+}) => {
   const [imgError, setImgError] = useState(false);
 
   // Determine color theme based on wine type
@@ -89,9 +101,50 @@ const WineCard: React.FC<WineCardProps> = ({ wine, index, onClick }) => {
            </div>
         )}
         
-        {/* Price Tag Overlay - Redesigned for elegance */}
-        <div className="absolute top-4 right-4 z-20">
-          <div className="bg-white/90 backdrop-blur-sm pl-3 pr-4 py-2 rounded-l-full rounded-r-lg border border-stone-100 shadow-lg flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300 translate-x-1 group-hover:translate-x-0">
+        {/* STOCK CONTROLS (Cellar Mode) OR ADD BUTTON (Search Mode) */}
+        {isCellarMode && onUpdateQuantity ? (
+           <div 
+             className="absolute top-4 right-4 z-30 flex items-center bg-white/90 backdrop-blur shadow-md rounded-full border border-stone-200 overflow-hidden"
+             onClick={(e) => e.stopPropagation()}
+           >
+              <button 
+                 onClick={() => onUpdateQuantity(-1)}
+                 className="p-2 px-3 text-stone-500 hover:text-red-600 hover:bg-red-50 transition-colors border-r border-stone-100"
+              >
+                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
+                 </svg>
+              </button>
+              <span className="px-2 font-serif font-bold text-wine-900 w-8 text-center">{wine.quantity || 1}</span>
+              <button 
+                 onClick={() => onUpdateQuantity(1)}
+                 className="p-2 px-3 text-stone-500 hover:text-green-600 hover:bg-green-50 transition-colors border-l border-stone-100"
+              >
+                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                 </svg>
+              </button>
+           </div>
+        ) : (
+            <button
+                onClick={onToggleCellar}
+                className="absolute top-4 right-4 z-30 p-2.5 rounded-full bg-white/90 backdrop-blur shadow-md border border-stone-100 transition-all hover:scale-110 active:scale-95 group/btn"
+            >
+                 <svg xmlns="http://www.w3.org/2000/svg" 
+                    fill={isInCellar ? "#e11d48" : "none"} 
+                    viewBox="0 0 24 24" 
+                    strokeWidth={isInCellar ? 0 : 1.5} 
+                    stroke="currentColor" 
+                    className={`w-6 h-6 ${isInCellar ? 'text-rose-600' : 'text-stone-400 group-hover/btn:text-rose-600'}`}
+                 >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+                 </svg>
+            </button>
+        )}
+
+        {/* Price Tag - Moved to Top Left */}
+        <div className="absolute top-4 left-4 z-20">
+          <div className="bg-white/80 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-stone-100 shadow-sm flex items-center">
              <span className="text-stone-400 text-[10px] font-bold uppercase tracking-wider mr-2 border-r border-stone-200 pr-2">Prix</span>
              <span className="text-wine-900 font-serif font-bold text-sm">{wine.priceRange}</span>
           </div>
@@ -122,7 +175,7 @@ const WineCard: React.FC<WineCardProps> = ({ wine, index, onClick }) => {
 
         <div className="mt-auto pt-4 border-t border-stone-100 flex justify-between items-center">
              <div className="flex items-center text-xs text-stone-500 font-medium">
-                <span className="mr-1">❤️</span> {wine.bestVintages?.[0] || 'Top'}
+                <span className="mr-1">✨</span> {wine.bestVintages?.[0] || 'Top'}
              </div>
              
              <div className="flex items-center text-xs text-wine-700 font-bold uppercase tracking-widest gap-1 group-hover:translate-x-1 transition-transform">

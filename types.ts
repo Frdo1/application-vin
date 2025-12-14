@@ -27,6 +27,7 @@ export interface Wine {
   alcoholContent?: string;
   imageUrl?: string; // URL de l'image (optionnel)
   dateAdded?: number; // Pour le tri dans la cave
+  quantity?: number; // Gestion du stock
 }
 
 export interface SearchState {
