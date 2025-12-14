@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 
 interface CameraModalProps {
@@ -39,7 +40,6 @@ const CameraModal: React.FC<CameraModalProps> = ({ isOpen, onClose, onCapture })
     try {
       setError(null);
       // Utilisation de 1080p (Full HD) pour un meilleur équilibre netteté/vitesse
-      // La 4K peut causer des problèmes de focus ou de lag sur certains appareils
       const constraints: MediaStreamConstraints = {
         video: { 
           facingMode: 'environment',
@@ -116,7 +116,41 @@ const CameraModal: React.FC<CameraModalProps> = ({ isOpen, onClose, onCapture })
       const reader = new FileReader();
       reader.onloadend = () => {
         const result = reader.result as string;
-        onCapture(result);
+        
+        // CRITICAL FIX: Redimensionnement de l'image importée pour éviter le crash (écran blanc)
+        // Les photos de smartphone peuvent faire 10MB+, ce qui crash le navigateur en base64.
+        const img = new Image();
+        img.onload = () => {
+             const canvas = document.createElement('canvas');
+             const MAX_WIDTH = 1280; // Suffisant pour lire une étiquette
+             const MAX_HEIGHT = 1280;
+             let width = img.width;
+             let height = img.height;
+
+             // Calcul du ratio
+             if (width > height) {
+               if (width > MAX_WIDTH) {
+                 height *= MAX_WIDTH / width;
+                 width = MAX_WIDTH;
+               }
+             } else {
+               if (height > MAX_HEIGHT) {
+                 width *= MAX_HEIGHT / height;
+                 height = MAX_HEIGHT;
+               }
+             }
+
+             canvas.width = width;
+             canvas.height = height;
+             const ctx = canvas.getContext('2d');
+             if(ctx) {
+                 ctx.drawImage(img, 0, 0, width, height);
+                 // Compression JPEG 0.8 pour un bon compromis qualité/poids
+                 const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85); 
+                 onCapture(compressedBase64);
+             }
+        };
+        img.src = result;
       };
       reader.readAsDataURL(file);
     }
