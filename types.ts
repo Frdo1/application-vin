@@ -26,6 +26,7 @@ export interface Wine {
   servingTemp: string; // Ex: "16-18°C"
   alcoholContent?: string;
   imageUrl?: string; // URL de l'image (optionnel)
+  dateAdded?: number; // Pour le tri dans la cave
 }
 
 export interface SearchState {
@@ -34,4 +35,10 @@ export interface SearchState {
   isLoading: boolean;
   error: string | null;
   hasSearched: boolean;
+}
+
+export interface ScanHistoryItem {
+  id: number;
+  date: number;
+  imageBase64: string;
 }

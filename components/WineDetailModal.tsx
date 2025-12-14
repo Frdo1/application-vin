@@ -7,6 +7,8 @@ interface WineDetailModalProps {
   wine: Wine | null;
   isOpen: boolean;
   onClose: () => void;
+  isInCellar?: boolean;
+  onToggleCellar?: (wine: Wine) => void;
 }
 
 // Sous-composant pour gérer le chargement individuel de chaque image
@@ -55,7 +57,7 @@ const FoodPairingItem: React.FC<{ food: FoodPairing }> = ({ food }) => {
   );
 };
 
-const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose }) => {
+const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose, isInCellar, onToggleCellar }) => {
   const [selectedVintage, setSelectedVintage] = useState<string | null>(null);
   const [vintagePrice, setVintagePrice] = useState<string | null>(null);
   const [loadingPrice, setLoadingPrice] = useState(false);
@@ -272,19 +274,40 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-4 animate-fade-in">
       <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
 
       <div className="relative w-full h-full md:h-auto md:max-h-[90vh] md:max-w-4xl bg-[#fdfbf7] md:rounded-2xl shadow-2xl overflow-y-auto flex flex-col md:flex-row animate-in fade-in zoom-in duration-300">
         
-        <button 
-            onClick={onClose}
-            className="absolute top-4 right-4 z-50 p-2 bg-white/80 backdrop-blur rounded-full hover:bg-white text-stone-800 transition-colors shadow-lg border border-stone-100"
-        >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-        </button>
+        {/* Actions Flottantes */}
+        <div className="absolute top-4 right-4 z-50 flex gap-2">
+            {/* Bouton Cave */}
+            {onToggleCellar && (
+                <button 
+                    onClick={() => onToggleCellar(wine)}
+                    className={`p-2 backdrop-blur rounded-full transition-all shadow-lg border
+                        ${isInCellar 
+                            ? 'bg-wine-600 text-white border-wine-500 hover:bg-wine-700' 
+                            : 'bg-white/80 text-stone-400 border-stone-100 hover:text-wine-600 hover:bg-white'
+                        }`}
+                    title={isInCellar ? "Retirer de ma cave" : "Ajouter à ma cave"}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill={isInCellar ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+                    </svg>
+                </button>
+            )}
+
+            {/* Bouton Fermer */}
+            <button 
+                onClick={onClose}
+                className="p-2 bg-white/80 backdrop-blur rounded-full hover:bg-white text-stone-800 transition-colors shadow-lg border border-stone-100"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
 
         {/* Left: Visuals */}
         <div className={`md:w-2/5 relative flex flex-col items-center justify-center p-8 overflow-visible ${wine.type === 'Rouge' ? 'bg-stone-100' : 'bg-white'}`}>
@@ -292,7 +315,7 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
                 {wine.type}
             </div>
 
-            <div className="absolute top-4 right-4 z-50 transition-all duration-300">
+            <div className="absolute top-4 right-4 z-50 transition-all duration-300 md:right-auto md:left-4 md:top-20">
                  <div className={`px-5 py-3 rounded-xl border-2 shadow-2xl flex flex-col items-center transform hover:scale-105 transition-all
                     ${selectedVintage 
                         ? 'bg-wine-800 border-wine-600 text-white' 
@@ -333,7 +356,7 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
         </div>
 
         {/* Right: Details */}
-        <div className="md:w-3/5 p-6 md:p-10 bg-[#fdfbf7] flex flex-col gap-8 relative z-10">
+        <div className="md:w-3/5 p-6 md:p-10 bg-[#fdfbf7] flex flex-col gap-8 relative z-10 pb-24 md:pb-10">
             
             <div>
                 <h2 className="text-3xl md:text-4xl font-serif font-bold text-stone-900 leading-tight mb-2">

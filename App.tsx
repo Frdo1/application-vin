@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { searchWines, analyzeLabel } from './services/geminiService';
-import { Wine, SearchState } from './types';
+import { Wine, SearchState, ScanHistoryItem } from './types';
 import WineCard from './components/WineCard';
 import WineDetailModal from './components/WineDetailModal';
 import CameraModal from './components/CameraModal';
 import GameCanvas from './components/GameCanvas';
+import BottomNav from './components/BottomNav';
 
 // Base de données locale pour l'autocomplétion (Top Vins & Appellations France)
 const POPULAR_WINES = [
@@ -63,6 +64,10 @@ const DownloadIcon = () => (
 );
 
 export default function App() {
+  // Navigation State
+  const [currentView, setCurrentView] = useState<'search' | 'cellar' | 'history'>('search');
+
+  // App States
   const [state, setState] = useState<SearchState>({
     query: '',
     results: [],
@@ -70,6 +75,10 @@ export default function App() {
     error: null,
     hasSearched: false,
   });
+  
+  const [cellar, setCellar] = useState<Wine[]>([]);
+  const [history, setHistory] = useState<ScanHistoryItem[]>([]);
+
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isGameOpen, setIsGameOpen] = useState(false);
   const [selectedWine, setSelectedWine] = useState<Wine | null>(null);
@@ -78,6 +87,24 @@ export default function App() {
   // State pour l'autocomplétion
   const [showSuggestions, setShowSuggestions] = useState(false);
   const suggestionRef = useRef<HTMLDivElement>(null);
+
+  // Load persistence
+  useEffect(() => {
+    const savedCellar = localStorage.getItem('sommelier_cellar');
+    if (savedCellar) setCellar(JSON.parse(savedCellar));
+
+    const savedHistory = localStorage.getItem('sommelier_history');
+    if (savedHistory) setHistory(JSON.parse(savedHistory));
+  }, []);
+
+  // Save persistence when changed
+  useEffect(() => {
+    localStorage.setItem('sommelier_cellar', JSON.stringify(cellar));
+  }, [cellar]);
+
+  useEffect(() => {
+    localStorage.setItem('sommelier_history', JSON.stringify(history));
+  }, [history]);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -106,7 +133,6 @@ export default function App() {
     installPrompt.prompt();
     const { outcome } = await installPrompt.userChoice;
     if (outcome === 'accepted') {
-      console.log('User accepted the install prompt');
       setInstallPrompt(null);
     }
   };
@@ -126,7 +152,7 @@ export default function App() {
       let message = "Une erreur est survenue lors de la consultation du sommelier.";
       
       if (error.message === "MISSING_API_KEY") {
-        message = "Configuration manquante : Clé API non trouvée. Veuillez configurer la variable 'API_KEY' dans Vercel et redéployer.";
+        message = "Configuration manquante : Clé API non trouvée.";
       }
 
       setState(prev => ({ 
@@ -137,8 +163,7 @@ export default function App() {
     }
   };
 
-  const handleCameraCapture = async (imageBase64: string) => {
-    setIsCameraOpen(false);
+  const processImageAnalysis = async (imageBase64: string) => {
     setState(prev => ({ 
       ...prev, 
       isLoading: true, 
@@ -173,7 +198,7 @@ export default function App() {
     } catch (error: any) {
       let message = "Erreur lors de l'analyse visuelle.";
       if (error.message === "MISSING_API_KEY") {
-        message = "Configuration requise : Clé API manquante sur Vercel.";
+        message = "Configuration requise : Clé API manquante.";
       }
       setState(prev => ({ 
         ...prev, 
@@ -181,6 +206,37 @@ export default function App() {
         error: message
       }));
     }
+  };
+
+  const handleCameraCapture = async (imageBase64: string) => {
+    setIsCameraOpen(false);
+    
+    // Save to History (Limit to 10 to save space)
+    const newItem: ScanHistoryItem = {
+        id: Date.now(),
+        date: Date.now(),
+        imageBase64: imageBase64
+    };
+    setHistory(prev => [newItem, ...prev].slice(0, 10));
+
+    // Switch to search view if not already
+    setCurrentView('search');
+
+    await processImageAnalysis(imageBase64);
+  };
+
+  const handleHistoryItemClick = async (item: ScanHistoryItem) => {
+      setCurrentView('search');
+      await processImageAnalysis(item.imageBase64);
+  };
+
+  const toggleCellar = (wine: Wine) => {
+      const exists = cellar.find(w => w.name === wine.name);
+      if (exists) {
+          setCellar(prev => prev.filter(w => w.name !== wine.name));
+      } else {
+          setCellar(prev => [{...wine, dateAdded: Date.now()}, ...prev]);
+      }
   };
 
   const handleSuggestionClick = (suggestion: string) => {
@@ -193,187 +249,266 @@ export default function App() {
     return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   };
 
-  // Calcul des suggestions filtrées avec une logique "Commence par" stricte sur les mots ET insensible aux accents
+  // Calcul des suggestions filtrées
   const filteredSuggestions = state.query.length > 1
     ? POPULAR_WINES.filter(w => {
         const query = normalize(state.query);
         const name = normalize(w);
-        
-        // 1. Match exact du début de la chaîne (Prioritaire)
         if (name.startsWith(query)) return true;
-
-        // 2. Match du début d'un mot (ex: "Margaux" dans "Château Margaux")
-        // On split sur espaces, tirets et apostrophes pour trouver les débuts de mots
         const words = name.split(/[\s'-]+/);
         return words.some(word => word.startsWith(query));
-      }).slice(0, 5) // Limiter à 5 suggestions
+      }).slice(0, 5)
     : [];
 
   return (
-    <div className="min-h-screen flex flex-col bg-stone-50 selection:bg-wine-200 selection:text-wine-900">
+    <div className="min-h-screen flex flex-col bg-stone-50 selection:bg-wine-200 selection:text-wine-900 pb-24">
       
-      {/* Header / Hero */}
-      <header className="relative bg-white border-b border-stone-200 pt-16 pb-12 px-4 shadow-sm">
-        {/* PWA Install Button (Visible only if installable) */}
-        {installPrompt && (
-          <div className="absolute top-4 right-4 animate-fade-in z-40">
-             <button
-               onClick={handleInstallClick}
-               className="flex items-center gap-2 bg-stone-900 text-white px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide hover:bg-wine-900 transition-colors shadow-lg"
-             >
-               <DownloadIcon />
-               Installer l'App
-             </button>
-          </div>
-        )}
-        
-        {/* Game Button */}
-        <div className="absolute top-4 left-4 animate-fade-in z-40">
-             <button
-               onClick={() => setIsGameOpen(true)}
-               className="flex items-center gap-2 bg-stone-100 text-stone-600 px-3 py-2 rounded-full text-xs font-bold uppercase tracking-wide hover:bg-wine-100 hover:text-wine-700 transition-colors border border-stone-200"
-               title="Jeu de la Vendange"
-             >
-               <GameIcon />
-               <span className="hidden sm:inline">Jeu</span>
-             </button>
-        </div>
-
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center justify-center p-3 bg-wine-50 rounded-full mb-6 text-wine-900 border border-wine-100">
-            <WineGlassIcon />
-          </div>
-          <h1 className="text-5xl md:text-6xl font-serif font-bold text-stone-900 mb-4 tracking-tight">
-            Le Sommelier <span className="text-wine-800">IA</span>
-          </h1>
-          <p className="text-lg text-stone-500 font-light mb-8 max-w-2xl mx-auto">
-            Découvrez les trésors du vignoble français. Décrivez vos envies ou scannez une étiquette.
-          </p>
-
-          <form onSubmit={handleSearch} className="relative max-w-2xl mx-auto z-30">
-            <div className="relative flex items-center">
-                <input
-                  type="text"
-                  value={state.query}
-                  onChange={(e) => {
-                    setState(prev => ({ ...prev, query: e.target.value }));
-                    setShowSuggestions(true);
-                  }}
-                  onFocus={() => setShowSuggestions(true)}
-                  placeholder="Décrivez un vin..."
-                  className="w-full pl-6 pr-24 py-4 text-lg bg-white border-2 border-stone-200 rounded-full shadow-sm focus:outline-none focus:border-wine-500 focus:ring-4 focus:ring-wine-50 transition-all placeholder:text-stone-300 text-stone-800"
-                  autoComplete="off"
-                />
-                
-                <div className="absolute right-2 flex gap-1 items-center">
+      {/* --- VUE RECHERCHE --- */}
+      {currentView === 'search' && (
+        <>
+            <header className="relative bg-white border-b border-stone-200 pt-16 pb-12 px-4 shadow-sm animate-fade-in">
+                {/* Install Button */}
+                {installPrompt && (
+                <div className="absolute top-4 right-4 z-40">
                     <button
-                        type="button"
-                        onClick={() => setIsCameraOpen(true)}
-                        className="p-3 text-stone-400 hover:text-wine-700 hover:bg-stone-50 rounded-full transition-colors group relative"
-                        title="Scanner ou Importer une étiquette"
+                    onClick={handleInstallClick}
+                    className="flex items-center gap-2 bg-stone-900 text-white px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide hover:bg-wine-900 transition-colors shadow-lg"
                     >
-                        <CameraIcon />
-                        {/* Dot indicator for PC users */}
-                        <span className="absolute top-2 right-2 w-2 h-2 bg-wine-500 rounded-full animate-pulse opacity-0 group-hover:opacity-100"></span>
-                    </button>
-                    <button 
-                    type="submit"
-                    disabled={state.isLoading}
-                    className="p-3 bg-wine-800 hover:bg-wine-900 text-white rounded-full flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                    {state.isLoading ? (
-                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    ) : (
-                        <SearchIcon />
-                    )}
+                    <DownloadIcon />
+                    Installer
                     </button>
                 </div>
-            </div>
+                )}
+                
+                {/* Game Button */}
+                <div className="absolute top-4 left-4 z-40">
+                    <button
+                    onClick={() => setIsGameOpen(true)}
+                    className="flex items-center gap-2 bg-stone-100 text-stone-600 px-3 py-2 rounded-full text-xs font-bold uppercase tracking-wide hover:bg-wine-100 hover:text-wine-700 transition-colors border border-stone-200"
+                    title="Jeu de la Vendange"
+                    >
+                    <GameIcon />
+                    <span className="hidden sm:inline">Jeu</span>
+                    </button>
+                </div>
 
-            {/* Suggestions Dropdown */}
-            {showSuggestions && filteredSuggestions.length > 0 && (
-              <div ref={suggestionRef} className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-stone-100 overflow-hidden animate-fade-in z-50">
-                <ul>
-                  {filteredSuggestions.map((suggestion, index) => (
-                    <li key={index}>
-                      <button
-                        type="button"
-                        onClick={() => handleSuggestionClick(suggestion)}
-                        className="w-full text-left px-6 py-3 hover:bg-stone-50 text-stone-700 font-serif border-b border-stone-50 last:border-0 transition-colors flex items-center gap-3"
-                      >
-                         <span className="text-stone-300">
-                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                           </svg>
-                         </span>
-                         {suggestion}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </form>
-
-          {!state.hasSearched && (
-            <div className="mt-6 flex flex-wrap justify-center gap-2">
-              {["Bordeaux puissant", "Chablis minéral", "Champagne de vigneron", "Rouge léger pour l'été"].map((sug, i) => (
-                <button 
-                    key={i}
-                    onClick={() => handleSuggestionClick(sug)}
-                    className="text-xs font-bold text-stone-400 uppercase tracking-widest hover:text-wine-700 transition-colors px-3 py-1 border border-stone-100 rounded-full hover:border-wine-200 bg-white"
-                >
-                    {sug}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="flex-grow container mx-auto px-4 py-12 max-w-6xl">
-        
-        {state.error && (
-            <div className="text-center p-8 bg-red-50 text-red-800 rounded-lg border border-red-100 max-w-2xl mx-auto shadow-sm">
-                <p className="font-bold mb-2">Oups !</p>
-                <p>{state.error}</p>
-            </div>
-        )}
-
-        {state.isLoading && !state.results.length && (
-            <div className="text-center py-20">
-                <p className="text-wine-900 font-serif text-xl animate-pulse">
-                    {state.query === "Analyse d'étiquette en cours..." ? "Analyse de l'étiquette..." : "Le sommelier descend à la cave..."}
+                <div className="max-w-4xl mx-auto text-center">
+                <div className="inline-flex items-center justify-center p-3 bg-wine-50 rounded-full mb-6 text-wine-900 border border-wine-100">
+                    <WineGlassIcon />
+                </div>
+                <h1 className="text-5xl md:text-6xl font-serif font-bold text-stone-900 mb-4 tracking-tight">
+                    Le Sommelier <span className="text-wine-800">IA</span>
+                </h1>
+                <p className="text-lg text-stone-500 font-light mb-8 max-w-2xl mx-auto">
+                    Découvrez les trésors du vignoble français. Décrivez vos envies ou scannez une étiquette.
                 </p>
-            </div>
-        )}
 
-        {state.results.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {state.results.map((wine, index) => (
-                    <WineCard 
-                        key={index} 
-                        wine={wine} 
-                        index={index} 
-                        onClick={() => setSelectedWine(wine)}
-                    />
-                ))}
-            </div>
-        )}
+                <form onSubmit={handleSearch} className="relative max-w-2xl mx-auto z-30">
+                    <div className="relative flex items-center">
+                        <input
+                        type="text"
+                        value={state.query}
+                        onChange={(e) => {
+                            setState(prev => ({ ...prev, query: e.target.value }));
+                            setShowSuggestions(true);
+                        }}
+                        onFocus={() => setShowSuggestions(true)}
+                        placeholder="Décrivez un vin..."
+                        className="w-full pl-6 pr-24 py-4 text-lg bg-white border-2 border-stone-200 rounded-full shadow-sm focus:outline-none focus:border-wine-500 focus:ring-4 focus:ring-wine-50 transition-all placeholder:text-stone-300 text-stone-800"
+                        autoComplete="off"
+                        />
+                        
+                        <div className="absolute right-2 flex gap-1 items-center">
+                            <button
+                                type="button"
+                                onClick={() => setIsCameraOpen(true)}
+                                className="p-3 text-stone-400 hover:text-wine-700 hover:bg-stone-50 rounded-full transition-colors group relative"
+                                title="Scanner ou Importer une étiquette"
+                            >
+                                <CameraIcon />
+                                <span className="absolute top-2 right-2 w-2 h-2 bg-wine-500 rounded-full animate-pulse opacity-0 group-hover:opacity-100"></span>
+                            </button>
+                            <button 
+                            type="submit"
+                            disabled={state.isLoading}
+                            className="p-3 bg-wine-800 hover:bg-wine-900 text-white rounded-full flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                            {state.isLoading ? (
+                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                                <SearchIcon />
+                            )}
+                            </button>
+                        </div>
+                    </div>
 
-        {state.hasSearched && !state.isLoading && state.results.length === 0 && !state.error && (
-            <div className="text-center text-stone-400 py-12">
-                <p>Aucun vin trouvé pour cette recherche.</p>
-            </div>
-        )}
-      </main>
+                    {showSuggestions && filteredSuggestions.length > 0 && (
+                    <div ref={suggestionRef} className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-stone-100 overflow-hidden animate-fade-in z-50">
+                        <ul>
+                        {filteredSuggestions.map((suggestion, index) => (
+                            <li key={index}>
+                            <button
+                                type="button"
+                                onClick={() => handleSuggestionClick(suggestion)}
+                                className="w-full text-left px-6 py-3 hover:bg-stone-50 text-stone-700 font-serif border-b border-stone-50 last:border-0 transition-colors flex items-center gap-3"
+                            >
+                                <span className="text-stone-300">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                                </svg>
+                                </span>
+                                {suggestion}
+                            </button>
+                            </li>
+                        ))}
+                        </ul>
+                    </div>
+                    )}
+                </form>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-stone-200 py-8 text-center text-stone-400 text-sm">
-        <p>L'abus d'alcool est dangereux pour la santé, à consommer avec modération.</p>
-        <p className="mt-2 text-xs">Propulsé par Google Gemini • Design par Le Sommelier IA</p>
-      </footer>
+                {!state.hasSearched && (
+                    <div className="mt-6 flex flex-wrap justify-center gap-2">
+                    {["Bordeaux puissant", "Chablis minéral", "Champagne de vigneron", "Rouge léger pour l'été"].map((sug, i) => (
+                        <button 
+                            key={i}
+                            onClick={() => handleSuggestionClick(sug)}
+                            className="text-xs font-bold text-stone-400 uppercase tracking-widest hover:text-wine-700 transition-colors px-3 py-1 border border-stone-100 rounded-full hover:border-wine-200 bg-white"
+                        >
+                            {sug}
+                        </button>
+                    ))}
+                    </div>
+                )}
+                </div>
+            </header>
+
+            <main className="flex-grow container mx-auto px-4 py-8 max-w-6xl animate-fade-in">
+                {state.error && (
+                    <div className="text-center p-8 bg-red-50 text-red-800 rounded-lg border border-red-100 max-w-2xl mx-auto shadow-sm">
+                        <p className="font-bold mb-2">Oups !</p>
+                        <p>{state.error}</p>
+                    </div>
+                )}
+
+                {state.isLoading && !state.results.length && (
+                    <div className="text-center py-20">
+                        <p className="text-wine-900 font-serif text-xl animate-pulse">
+                            {state.query === "Analyse d'étiquette en cours..." ? "Analyse de l'étiquette..." : "Le sommelier descend à la cave..."}
+                        </p>
+                    </div>
+                )}
+
+                {state.results.length > 0 && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {state.results.map((wine, index) => (
+                            <WineCard 
+                                key={index} 
+                                wine={wine} 
+                                index={index} 
+                                onClick={() => setSelectedWine(wine)}
+                            />
+                        ))}
+                    </div>
+                )}
+
+                {state.hasSearched && !state.isLoading && state.results.length === 0 && !state.error && (
+                    <div className="text-center text-stone-400 py-12">
+                        <p>Aucun vin trouvé pour cette recherche.</p>
+                    </div>
+                )}
+            </main>
+        </>
+      )}
+
+      {/* --- VUE CAVE --- */}
+      {currentView === 'cellar' && (
+        <div className="flex-grow container mx-auto px-4 py-8 max-w-6xl animate-fade-in">
+             <header className="mb-8 text-center">
+                 <h1 className="text-4xl font-serif font-bold text-stone-900">Ma Cave</h1>
+                 <p className="text-stone-500 mt-2">{cellar.length} vin{cellar.length > 1 ? 's' : ''} conservé{cellar.length > 1 ? 's' : ''}</p>
+             </header>
+
+             {cellar.length === 0 ? (
+                 <div className="text-center py-20 px-6 bg-white rounded-2xl border border-stone-200 shadow-sm mx-auto max-w-md">
+                     <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-4 text-stone-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m8.25 3.75h3M12 15.75h3M12 7.5v-3h-3v3M12 7.5H4.875c-.621 0-1.125.504-1.125 1.125v1.125c0 .621.504 1.125 1.125 1.125h.375m3 0h12m-12 0v7.625c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V10.875m-9 0H3.375" />
+                        </svg>
+                     </div>
+                     <p className="text-stone-800 font-bold mb-2">Votre cave est vide</p>
+                     <p className="text-stone-500 text-sm mb-6">Recherchez ou scannez des vins et appuyez sur le cœur pour les ajouter ici.</p>
+                     <button 
+                        onClick={() => setCurrentView('search')}
+                        className="bg-wine-800 text-white px-6 py-2 rounded-full font-bold text-sm hover:bg-wine-900 transition-colors"
+                     >
+                         Trouver un vin
+                     </button>
+                 </div>
+             ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {cellar.map((wine, index) => (
+                        <WineCard 
+                            key={`cellar-${index}`} 
+                            wine={wine} 
+                            index={index} 
+                            onClick={() => setSelectedWine(wine)}
+                        />
+                    ))}
+                </div>
+             )}
+        </div>
+      )}
+
+      {/* --- VUE HISTORIQUE --- */}
+      {currentView === 'history' && (
+        <div className="flex-grow container mx-auto px-4 py-8 max-w-4xl animate-fade-in">
+            <header className="mb-8 text-center">
+                 <h1 className="text-4xl font-serif font-bold text-stone-900">Historique</h1>
+                 <p className="text-stone-500 mt-2">Vos {history.length} derniers scans</p>
+            </header>
+            
+            {history.length === 0 ? (
+                <div className="text-center py-20 px-6">
+                    <p className="text-stone-400">Aucun scan récent. Utilisez la caméra pour commencer.</p>
+                    <button 
+                        onClick={() => setIsCameraOpen(true)}
+                        className="mt-4 bg-stone-900 text-white px-6 py-2 rounded-full font-bold text-sm"
+                     >
+                         Ouvrir la caméra
+                     </button>
+                </div>
+            ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {history.map((item) => (
+                        <button 
+                            key={item.id}
+                            onClick={() => handleHistoryItemClick(item)}
+                            className="group relative aspect-[3/4] bg-stone-100 rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all border border-stone-200"
+                        >
+                            <img src={item.imageBase64} alt="Scan" className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                <span className="opacity-0 group-hover:opacity-100 bg-white text-stone-900 text-xs font-bold px-3 py-1 rounded-full shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-all">
+                                    Analyser
+                                </span>
+                            </div>
+                            <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/60 to-transparent">
+                                <p className="text-white text-[10px] font-bold text-right">
+                                    {new Date(item.date).toLocaleDateString()}
+                                </p>
+                            </div>
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+      )}
+
+      {/* Bottom Navigation */}
+      <BottomNav 
+        currentView={currentView} 
+        onChangeView={setCurrentView} 
+        cellarCount={cellar.length} 
+      />
 
       {/* Modals */}
       <CameraModal 
@@ -386,6 +521,8 @@ export default function App() {
         isOpen={!!selectedWine}
         wine={selectedWine}
         onClose={() => setSelectedWine(null)}
+        isInCellar={selectedWine ? cellar.some(w => w.name === selectedWine.name) : false}
+        onToggleCellar={toggleCellar}
       />
 
       <GameCanvas
