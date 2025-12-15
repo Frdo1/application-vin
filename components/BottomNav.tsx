@@ -28,8 +28,9 @@ const BottomNav: React.FC<BottomNavProps> = ({ currentView, onChangeView, cellar
         className={`flex flex-col items-center gap-1 w-16 transition-all duration-300 ${currentView === 'cellar' ? 'text-wine-800 -translate-y-2' : 'text-stone-400'}`}
       >
         <div className={`relative p-2 rounded-full transition-all ${currentView === 'cellar' ? 'bg-wine-50' : 'bg-transparent'}`}>
+            {/* Nouvelle icône : Grille / Casier à bouteilles */}
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={currentView === 'cellar' ? 2.5 : 1.5} stroke="currentColor" className="w-6 h-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m8.25 3.75h3M12 15.75h3M12 7.5v-3h-3v3M12 7.5H4.875c-.621 0-1.125.504-1.125 1.125v1.125c0 .621.504 1.125 1.125 1.125h.375m3 0h12m-12 0v7.625c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V10.875m-9 0H3.375" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
             </svg>
             {cellarCount > 0 && (
                 <span className="absolute top-0 right-0 -mt-1 -mr-1 bg-wine-600 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center border border-white">

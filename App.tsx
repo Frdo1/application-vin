@@ -63,6 +63,12 @@ const DownloadIcon = () => (
   </svg>
 );
 
+const PlusIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+    </svg>
+);
+
 export default function App() {
   // Navigation State
   const [currentView, setCurrentView] = useState<'search' | 'cellar' | 'history'>('search');
@@ -76,6 +82,9 @@ export default function App() {
     hasSearched: false,
   });
   
+  // State pour la pagination (Charger plus)
+  const [isMoreLoading, setIsMoreLoading] = useState(false);
+
   const [cellar, setCellar] = useState<Wine[]>([]);
   const [history, setHistory] = useState<ScanHistoryItem[]>([]);
 
@@ -139,10 +148,12 @@ export default function App() {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!state.query.trim() && state.hasSearched) return;
+    if (!state.query.trim()) return;
     setShowSuggestions(false); // Cache les suggestions au lancement
 
-    setState(prev => ({ ...prev, isLoading: true, error: null, hasSearched: true }));
+    // Reset complet pour une nouvelle recherche
+    setState(prev => ({ ...prev, results: [], isLoading: true, error: null, hasSearched: true }));
+    setIsMoreLoading(false);
     
     try {
       const wines = await searchWines(state.query);
@@ -163,14 +174,40 @@ export default function App() {
     }
   };
 
+  const handleLoadMore = async () => {
+      if (!state.query || isMoreLoading) return;
+      
+      setIsMoreLoading(true);
+      try {
+          // On passe les noms des vins actuels pour les exclure de la prochaine page
+          const currentNames = state.results.map(w => w.name);
+          const newWines = await searchWines(state.query, currentNames);
+          
+          if (newWines.length === 0) {
+              // Optionnel : Gérer le cas où il n'y a plus de résultats (ex: Toast)
+          } else {
+              setState(prev => ({
+                  ...prev,
+                  results: [...prev.results, ...newWines]
+              }));
+          }
+      } catch (e) {
+          console.error("Erreur chargement page suivante", e);
+      } finally {
+          setIsMoreLoading(false);
+      }
+  };
+
   const processImageAnalysis = async (imageBase64: string) => {
     setState(prev => ({ 
       ...prev, 
       isLoading: true, 
       error: null, 
       hasSearched: true,
-      query: "Analyse d'étiquette en cours..." 
+      query: "Analyse d'étiquette en cours...",
+      results: [] 
     }));
+    setIsMoreLoading(false);
 
     try {
       const wines = await analyzeLabel(imageBase64);
@@ -255,8 +292,23 @@ export default function App() {
   };
 
   const handleSuggestionClick = (suggestion: string) => {
+    // Set query state synchronously so the user sees it
     setState(prev => ({ ...prev, query: suggestion }));
     setShowSuggestions(false);
+    
+    // Trigger search manually but using the new query value (passed directly to avoid stale state issues)
+    // We replicate handleSearch logic here briefly or just call it if we could pass event.
+    // Simpler: Reuse logic
+    (async () => {
+         setState(prev => ({ ...prev, query: suggestion, results: [], isLoading: true, error: null, hasSearched: true }));
+         setIsMoreLoading(false);
+         try {
+           const wines = await searchWines(suggestion);
+           setState(prev => ({ ...prev, results: wines, isLoading: false }));
+         } catch (error: any) {
+             setState(prev => ({ ...prev, isLoading: false, error: "Erreur lors de la recherche." }));
+         }
+    })();
   };
 
   // Helper de normalisation (retire les accents)
@@ -425,21 +477,46 @@ export default function App() {
                 )}
 
                 {state.results.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {state.results.map((wine, index) => (
-                            <WineCard 
-                                key={index} 
-                                wine={wine} 
-                                index={index} 
-                                onClick={() => setSelectedWine(wine)}
-                                isInCellar={cellar.some(c => c.name === wine.name)}
-                                onToggleCellar={(e) => {
-                                    e.stopPropagation();
-                                    toggleCellar(wine);
-                                }}
-                                isCellarMode={false}
-                            />
-                        ))}
+                    <div className="flex flex-col gap-12">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            {state.results.map((wine, index) => (
+                                <WineCard 
+                                    key={index} 
+                                    wine={wine} 
+                                    index={index} 
+                                    onClick={() => setSelectedWine(wine)}
+                                    isInCellar={cellar.some(c => c.name === wine.name)}
+                                    onToggleCellar={(e) => {
+                                        e.stopPropagation();
+                                        toggleCellar(wine);
+                                    }}
+                                    isCellarMode={false}
+                                />
+                            ))}
+                        </div>
+                        
+                        {/* Pagination / Load More Button */}
+                        {!state.isLoading && (
+                            <div className="flex justify-center pb-8">
+                                <button
+                                    onClick={handleLoadMore}
+                                    disabled={isMoreLoading}
+                                    className="group relative inline-flex items-center justify-center gap-2 px-8 py-4 bg-white border border-stone-200 rounded-full shadow-sm hover:shadow-md hover:border-wine-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isMoreLoading ? (
+                                        <>
+                                            <div className="w-5 h-5 border-2 border-stone-300 border-t-wine-600 rounded-full animate-spin"></div>
+                                            <span className="text-stone-500 font-serif italic">Recherche en cours...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <PlusIcon />
+                                            <span className="text-stone-800 font-serif font-bold group-hover:text-wine-800 transition-colors">Voir d'autres vins</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
 

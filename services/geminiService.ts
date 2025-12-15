@@ -76,20 +76,26 @@ const generateFallbackImage = (wineName: string): string => {
   return `https://tse2.mm.bing.net/th?q=${query}&w=500&h=700&c=7&rs=1&p=0`;
 };
 
-export const searchWines = async (query: string): Promise<Wine[]> => {
+export const searchWines = async (query: string, excludeNames: string[] = []): Promise<Wine[]> => {
   if (!apiKey || !ai) {
     console.error("API Key is missing in searchWines");
     throw new Error("MISSING_API_KEY");
   }
 
   try {
-    // Prompt optimisé pour la vitesse (Google Search retiré pour gagner ~3s de latence)
+    // Gestion de la pagination via exclusion
+    const excludeContext = excludeNames.length > 0 
+        ? `IMPORTANT : Ne suggère PAS les vins suivants car ils sont déjà affichés : ${JSON.stringify(excludeNames)}. Trouve 6 AUTRES vins pertinents et différents.` 
+        : '';
+
+    // Prompt optimisé pour la vitesse
     const prompt = `
       Rôle : Sommelier Expert.
-      Tâche : Suggère 3 vins pertinents pour la recherche "${query}".
+      Tâche : Suggère 6 vins pertinents pour la recherche "${query}".
+      ${excludeContext}
       
       Instructions :
-      1. Sélectionne les 3 meilleures options.
+      1. Sélectionne les 6 meilleures options (ou alternatives si exclusion).
       2. Fournis une estimation réaliste du prix.
       3. Sois précis sur les cépages et les accords mets-vins.
 
@@ -102,9 +108,6 @@ export const searchWines = async (query: string): Promise<Wine[]> => {
       contents: prompt,
       config: {
         // OPTIMISATION PERFORMANCE :
-        // 1. Suppression de 'tools: [{ googleSearch: {} }]' pour la recherche textuelle simple.
-        //    Le modèle 2.5-Flash est assez rapide et compétent pour les connaissances générales sur le vin sans recherche web.
-        // 2. Activation du 'responseMimeType: application/json' pour garantir la structure et la vitesse de parsing.
         responseMimeType: 'application/json',
         temperature: 0.7,
       },
