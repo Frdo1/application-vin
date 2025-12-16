@@ -237,6 +237,22 @@ const AromaWheel: React.FC<AromaWheelProps> = ({ isOpen, onClose, onSelect }) =>
     <div className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-sm flex items-center justify-center animate-fade-in p-4">
       <div className="relative w-full max-w-md aspect-square bg-white rounded-full shadow-2xl overflow-hidden flex items-center justify-center animate-in zoom-in duration-300">
         
+        {/* Bouton Retour (Visible seulement si on est descendu dans la hiérarchie) */}
+        {history.length > 0 && (
+            <button 
+                onClick={(e) => {
+                    e.stopPropagation();
+                    handleBack();
+                }}
+                className="absolute top-4 left-4 z-50 p-2 bg-stone-100 rounded-full text-stone-500 hover:bg-stone-200 transition-colors shadow-sm"
+                title="Retour en arrière"
+            >
+                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                </svg>
+            </button>
+        )}
+
         {/* Bouton Fermer (Absolu en haut à droite du conteneur carré) */}
         <button 
             onClick={onClose}

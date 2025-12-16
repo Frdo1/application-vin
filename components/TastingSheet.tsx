@@ -80,6 +80,16 @@ const TastingSheet: React.FC<TastingSheetProps> = ({ wine, isOpen, onClose, onSa
     }
   }, [wine]);
 
+  const formatDateDisplay = (dateStr: string) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+        // YYYY-MM-DD -> DD/MM/YY
+        return `${parts[2]}/${parts[1]}/${parts[0].slice(2)}`;
+    }
+    return dateStr;
+  };
+
   if (!isOpen) return null;
 
   const updateVisual = (key: keyof UserTasting['visual'], val: number) => 
@@ -203,15 +213,18 @@ const TastingSheet: React.FC<TastingSheetProps> = ({ wine, isOpen, onClose, onSa
 
             {/* General Info Cards */}
             <div className="grid grid-cols-3 gap-3 mb-8">
-                <div className="bg-white border border-stone-100 shadow-sm rounded-xl p-3 flex flex-col items-center justify-center text-center">
+                {/* DATE CUSTOM DISPLAY */}
+                <div className="bg-white border border-stone-100 shadow-sm rounded-xl p-3 flex flex-col items-center justify-center text-center relative overflow-hidden">
                     <span className="text-[10px] text-stone-400 uppercase font-bold mb-1">Date</span>
+                    <span className="font-bold text-stone-800 text-sm">{formatDateDisplay(tasting.date)}</span>
                     <input 
                         type="date" 
                         value={tasting.date}
                         onChange={(e) => setTasting(prev => ({...prev, date: e.target.value}))}
-                        className="w-full text-center font-bold text-stone-800 text-sm bg-transparent focus:outline-none"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     />
                 </div>
+                
                 <div className="bg-white border border-stone-100 shadow-sm rounded-xl p-3 flex flex-col items-center justify-center text-center">
                      <span className="text-[10px] text-stone-400 uppercase font-bold mb-1">Lieu</span>
                      <input 
