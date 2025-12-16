@@ -183,7 +183,6 @@ const getLabelPosition = (index: number, total: number, radius: number) => {
 const AromaWheel: React.FC<AromaWheelProps> = ({ isOpen, onClose, onSelect }) => {
   const [history, setHistory] = useState<any[]>([]); // Stack de navigation
   const [currentLevelData, setCurrentLevelData] = useState<any[]>(AROMA_DATA);
-  const [animating, setAnimating] = useState(false);
 
   // Détermine la couleur actuelle (celle du parent si on est dans un sous-niveau)
   const activeColor = useMemo(() => {
@@ -234,35 +233,26 @@ const AromaWheel: React.FC<AromaWheelProps> = ({ isOpen, onClose, onSelect }) =>
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-sm flex items-center justify-center animate-fade-in p-4">
-      <div className="relative w-full max-w-md aspect-square bg-white rounded-full shadow-2xl overflow-hidden flex items-center justify-center animate-in zoom-in duration-300">
+    <div 
+      className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-sm flex items-center justify-center animate-fade-in p-4"
+      onClick={onClose} // Fermer au clic sur le fond
+    >
+      
+      {/* Bouton Fermer Global (Visible en haut à droite de l'écran) */}
+      <button 
+          onClick={onClose}
+          className="absolute top-6 right-6 z-[80] p-3 bg-white/20 text-white rounded-full hover:bg-white/30 backdrop-blur transition-colors shadow-lg"
+      >
+           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-6 h-6">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+      </button>
+
+      <div 
+        className="relative w-full max-w-md aspect-square bg-white rounded-full shadow-2xl overflow-hidden flex items-center justify-center animate-in zoom-in duration-300"
+        onClick={(e) => e.stopPropagation()} // Empêcher la fermeture au clic sur la roue
+      >
         
-        {/* Bouton Retour (Visible seulement si on est descendu dans la hiérarchie) */}
-        {history.length > 0 && (
-            <button 
-                onClick={(e) => {
-                    e.stopPropagation();
-                    handleBack();
-                }}
-                className="absolute top-4 left-4 z-50 p-2 bg-stone-100 rounded-full text-stone-500 hover:bg-stone-200 transition-colors shadow-sm"
-                title="Retour en arrière"
-            >
-                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-                </svg>
-            </button>
-        )}
-
-        {/* Bouton Fermer (Absolu en haut à droite du conteneur carré) */}
-        <button 
-            onClick={onClose}
-            className="absolute top-4 right-4 z-50 p-2 bg-stone-100 rounded-full text-stone-500 hover:bg-stone-200"
-        >
-             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-        </button>
-
         {/* SVG Wheel */}
         <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-xl select-none">
           {/* Segments */}
@@ -348,21 +338,10 @@ const AromaWheel: React.FC<AromaWheelProps> = ({ isOpen, onClose, onSelect }) =>
           </g>
         </svg>
 
-        {/* Plus Icon Overlay in Center (Purely visual like screenshot) */}
-        {history.length === 0 && (
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 translate-y-2 pointer-events-none">
-                <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center text-white border-2 border-white shadow-lg">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-4 h-4">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                    </svg>
-                </div>
-            </div>
-        )}
-
       </div>
       
       {/* Legend / Instruction */}
-      <div className="absolute bottom-10 text-white/80 text-sm font-medium text-center bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm">
+      <div className="absolute bottom-10 text-white/80 text-sm font-medium text-center bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm pointer-events-none">
          {history.length === 0 ? "Touchez une famille" : "Touchez pour préciser"}
       </div>
     </div>

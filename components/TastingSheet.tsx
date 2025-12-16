@@ -50,7 +50,7 @@ const CustomSlider = ({ label, value, onChange }: { label: string, value: number
 const SectionHeader = ({ icon, title }: { icon: React.ReactNode, title: string }) => (
     <div className="flex items-center justify-between mt-8 mb-6 border-b border-stone-200 pb-2">
         <h3 className="text-xl font-serif font-bold text-stone-900">{title}</h3>
-        <div className="text-wine-800">
+        <div className="text-stone-800">
             {icon}
         </div>
     </div>
@@ -279,11 +279,11 @@ const TastingSheet: React.FC<TastingSheetProps> = ({ wine, isOpen, onClose, onSa
             <SectionHeader 
                 title="Nez" 
                 icon={
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
-                         {/* Profil Nez */}
-                         <path strokeLinecap="round" strokeLinejoin="round" d="M10 6c-3 0-4 3-4 5.5 0 2 1.5 3.5 2.5 4.5 1 1 1 2 1 3.5 0 1.5-1.5 2-3.5 2" />
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-10 h-10">
+                         {/* Profil Style Line-Art */}
+                         <path d="M16 4c-4 5-7 10-6 13 0.5 2 3.5 2.5 5 1.5" />
                          {/* Narine */}
-                         <path strokeLinecap="round" strokeLinejoin="round" d="M14 15.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z" />
+                         <path d="M14 16.5c1 0 2 0.5 2.5 2" />
                     </svg>
                 } 
             />
@@ -327,11 +327,13 @@ const TastingSheet: React.FC<TastingSheetProps> = ({ wine, isOpen, onClose, onSa
             <SectionHeader 
                 title="Bouche" 
                 icon={
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
-                        {/* Contour Lèvres */}
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9c-3 0-5 2-6 3.5 1 2 3 3.5 6 3.5s5-1.5 6-3.5c-1-1.5-3-3.5-6-3.5z" />
-                        {/* Ligne séparation */}
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M7 12.5c1.5 1 3 1.5 5 1.5s3.5-.5 5-1.5" />
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-10 h-10">
+                        {/* Lèvres Supérieures */}
+                        <path d="M4 12c3-3 6-4.5 8-3 2-1.5 5 0 8 3" />
+                        {/* Ligne médiane */}
+                        <path d="M4 12q8 2.5 16 0" />
+                        {/* Lèvres Inférieures */}
+                        <path d="M4 12c4 6 12 6 16 0" />
                     </svg>
                 } 
             />
