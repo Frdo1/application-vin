@@ -6,6 +6,34 @@ export interface FoodPairing {
   imageKeyword: string; // Pour générer l'image
 }
 
+export interface UserTasting {
+  date: string;
+  location: string;
+  rating: number; // 0-100
+  comment: string;
+  guests?: string;
+  vintage?: string; // Année du vin dégusté
+  visual: {
+    intensity: number;
+    limpidity: number;
+    brilliance: number;
+    tears: number; // Fluidité
+  };
+  nose: {
+    intensity: number;
+    impression: number; // Qualité
+    aromas: string[]; // ex: "Fruité", "Boisé" (non implémenté en UI complexe pour l'instant)
+  };
+  mouth: {
+    sugar: number;
+    alcohol: number;
+    acidity: number;
+    tannins: number;
+    persistence: number;
+    caudalie: number; // Longueur
+  };
+}
+
 export interface Wine {
   name: string;
   region: string;
@@ -28,6 +56,7 @@ export interface Wine {
   imageUrl?: string; // URL de l'image (optionnel)
   dateAdded?: number; // Pour le tri dans la cave
   quantity?: number; // Gestion du stock
+  userTasting?: UserTasting; // Notes personnelles de l'utilisateur
 }
 
 export interface SearchState {

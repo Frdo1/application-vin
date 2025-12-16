@@ -1,12 +1,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { searchWines, analyzeLabel } from './services/geminiService';
-import { Wine, SearchState, ScanHistoryItem } from './types';
+import { Wine, SearchState, ScanHistoryItem, UserTasting } from './types';
 import WineCard from './components/WineCard';
 import WineDetailModal from './components/WineDetailModal';
 import CameraModal from './components/CameraModal';
 import GameCanvas from './components/GameCanvas';
 import BottomNav from './components/BottomNav';
+import TastingSheet from './components/TastingSheet';
 
 // Base de données locale pour l'autocomplétion (Top Vins & Appellations France)
 const POPULAR_WINES = [
@@ -90,6 +91,8 @@ export default function App() {
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isGameOpen, setIsGameOpen] = useState(false);
+  const [isTastingOpen, setIsTastingOpen] = useState(false);
+  
   const [selectedWine, setSelectedWine] = useState<Wine | null>(null);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   
@@ -267,6 +270,11 @@ export default function App() {
       await processImageAnalysis(item.imageBase64);
   };
 
+  const deleteHistoryItem = (e: React.MouseEvent, id: number) => {
+      e.stopPropagation();
+      setHistory(prev => prev.filter(item => item.id !== id));
+  };
+
   // Ajout / Suppression simple (utilisé depuis la recherche)
   const toggleCellar = (wine: Wine) => {
       const exists = cellar.find(w => w.name === wine.name);
@@ -289,6 +297,30 @@ export default function App() {
             return w;
         }).filter(w => (w.quantity || 0) > 0); // Si la quantité tombe à 0, on retire le vin
     });
+  };
+
+  const handleSaveTasting = (tasting: UserTasting) => {
+    if (!selectedWine) return;
+
+    // Mise à jour du vin avec la note de dégustation
+    const updatedWine: Wine = { ...selectedWine, userTasting: tasting };
+
+    // Si le vin est déjà dans la cave, on le met à jour
+    const inCellar = cellar.find(w => w.name === selectedWine.name);
+    if (inCellar) {
+        setCellar(prev => prev.map(w => w.name === selectedWine.name ? updatedWine : w));
+    } else {
+        // Sinon, on l'ajoute à la cave
+        setCellar(prev => [{ ...updatedWine, dateAdded: Date.now(), quantity: 1 }, ...prev]);
+    }
+
+    // Mise à jour de l'état local du vin sélectionné pour refléter les changements
+    setSelectedWine(updatedWine);
+  };
+
+  const handleStartTasting = () => {
+    // Ferme le modal de détail et ouvre la fiche de dégustation
+    setIsTastingOpen(true);
   };
 
   const handleSuggestionClick = (suggestion: string) => {
@@ -615,23 +647,34 @@ export default function App() {
             ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                     {history.map((item) => (
-                        <button 
+                        <div 
                             key={item.id}
                             onClick={() => handleHistoryItemClick(item)}
-                            className="group relative aspect-[3/4] bg-stone-100 rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all border border-stone-200"
+                            className="group relative aspect-[3/4] bg-stone-100 rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all border border-stone-200 cursor-pointer"
                         >
                             <img src={item.imageBase64} alt="Scan" className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center pointer-events-none">
                                 <span className="opacity-0 group-hover:opacity-100 bg-white text-stone-900 text-xs font-bold px-3 py-1 rounded-full shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-all">
                                     Analyser
                                 </span>
                             </div>
-                            <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/60 to-transparent">
+                            <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/60 to-transparent pointer-events-none">
                                 <p className="text-white text-[10px] font-bold text-right">
                                     {new Date(item.date).toLocaleDateString()}
                                 </p>
                             </div>
-                        </button>
+                            
+                            {/* Bouton de suppression (Croix) */}
+                            <button
+                                onClick={(e) => deleteHistoryItem(e, item.id)}
+                                className="absolute top-2 right-2 p-1.5 bg-black/30 hover:bg-red-600 text-white rounded-full backdrop-blur-sm transition-colors z-20"
+                                title="Supprimer de l'historique"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
                     ))}
                 </div>
             )}
@@ -658,7 +701,17 @@ export default function App() {
         onClose={() => setSelectedWine(null)}
         isInCellar={selectedWine ? cellar.some(w => w.name === selectedWine.name) : false}
         onToggleCellar={toggleCellar}
+        onStartTasting={handleStartTasting}
       />
+
+      {selectedWine && (
+          <TastingSheet
+              isOpen={isTastingOpen}
+              onClose={() => setIsTastingOpen(false)}
+              wine={selectedWine}
+              onSave={handleSaveTasting}
+          />
+      )}
 
       <GameCanvas
         isOpen={isGameOpen}

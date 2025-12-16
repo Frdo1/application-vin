@@ -9,6 +9,7 @@ interface WineDetailModalProps {
   onClose: () => void;
   isInCellar?: boolean;
   onToggleCellar?: (wine: Wine) => void;
+  onStartTasting?: () => void;
 }
 
 // Sous-composant pour gérer le chargement individuel de chaque image
@@ -57,7 +58,7 @@ const FoodPairingItem: React.FC<{ food: FoodPairing }> = ({ food }) => {
   );
 };
 
-const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose, isInCellar, onToggleCellar }) => {
+const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose, isInCellar, onToggleCellar, onStartTasting }) => {
   const [selectedVintage, setSelectedVintage] = useState<string | null>(null);
   const [vintagePrice, setVintagePrice] = useState<string | null>(null);
   const [loadingPrice, setLoadingPrice] = useState(false);
@@ -353,6 +354,8 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
                     </svg>
                 )}
              </div>
+
+             {/* Tasting Button Overlay for Mobile visual balance if needed, or placed in details */}
         </div>
 
         {/* Right: Details */}
@@ -369,8 +372,37 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
                 </div>
             </div>
 
+            {/* BOUTON DÉGUSTATION */}
+            {onStartTasting && (
+                <div 
+                    onClick={onStartTasting}
+                    className="cursor-pointer bg-white border border-stone-200 shadow-sm rounded-xl p-4 flex items-center justify-between hover:shadow-md hover:border-wine-200 transition-all group"
+                >
+                    <div className="flex items-center gap-3">
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm
+                            ${wine.userTasting ? 'bg-wine-600' : 'bg-stone-200 text-stone-400'}`}
+                        >
+                            {wine.userTasting ? wine.userTasting.rating : '?'}
+                        </div>
+                        <div>
+                            <p className="font-bold text-stone-800 group-hover:text-wine-800 transition-colors">
+                                {wine.userTasting ? "Ma Note de Dégustation" : "Noter ce vin"}
+                            </p>
+                            <p className="text-xs text-stone-400">
+                                {wine.userTasting ? `Dégusté le ${new Date(wine.userTasting.date).toLocaleDateString()}` : "Créer une fiche de dégustation complète"}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="text-stone-300 group-hover:text-wine-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                        </svg>
+                    </div>
+                </div>
+            )}
+
             <div className="bg-white p-6 rounded-xl border border-stone-100 shadow-sm">
-                <h3 className="font-serif text-xl font-bold text-stone-800 mb-3 border-b border-stone-100 pb-2">Dégustation</h3>
+                <h3 className="font-serif text-xl font-bold text-stone-800 mb-3 border-b border-stone-100 pb-2">Dégustation Sommelier</h3>
                 <p className="text-stone-600 italic mb-4 leading-relaxed">"{wine.description}"</p>
                 
                 <div className="grid grid-cols-2 gap-4">
