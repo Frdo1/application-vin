@@ -80,6 +80,7 @@ const TastingSheet: React.FC<TastingSheetProps> = ({ wine, isOpen, onClose, onSa
     }
   }, [wine]);
 
+  // Formatage de la date en JJ/MM/AA
   const formatDateDisplay = (dateStr: string) => {
     if (!dateStr) return '';
     const parts = dateStr.split('-');
@@ -216,7 +217,9 @@ const TastingSheet: React.FC<TastingSheetProps> = ({ wine, isOpen, onClose, onSa
                 {/* DATE CUSTOM DISPLAY */}
                 <div className="bg-white border border-stone-100 shadow-sm rounded-xl p-3 flex flex-col items-center justify-center text-center relative overflow-hidden">
                     <span className="text-[10px] text-stone-400 uppercase font-bold mb-1">Date</span>
+                    {/* Affichage formatté court */}
                     <span className="font-bold text-stone-800 text-sm">{formatDateDisplay(tasting.date)}</span>
+                    {/* Input invisible par dessus pour le sélecteur natif */}
                     <input 
                         type="date" 
                         value={tasting.date}
@@ -277,9 +280,10 @@ const TastingSheet: React.FC<TastingSheetProps> = ({ wine, isOpen, onClose, onSa
                 title="Nez" 
                 icon={
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
-                         <path d="M12 14c2.5 0 4-1.5 4-4a4 4 0 1 0-8 0c0 2.5 1.5 4 4 4z" />
-                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 14v8" />
-                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 19c-1-1-3-2-3-4" />
+                         {/* Profil Nez */}
+                         <path strokeLinecap="round" strokeLinejoin="round" d="M10 6c-3 0-4 3-4 5.5 0 2 1.5 3.5 2.5 4.5 1 1 1 2 1 3.5 0 1.5-1.5 2-3.5 2" />
+                         {/* Narine */}
+                         <path strokeLinecap="round" strokeLinejoin="round" d="M14 15.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z" />
                     </svg>
                 } 
             />
@@ -324,7 +328,10 @@ const TastingSheet: React.FC<TastingSheetProps> = ({ wine, isOpen, onClose, onSa
                 title="Bouche" 
                 icon={
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.182 15.182a4.5 4.5 0 01-6.364 0M21 12a9 9 0 11-18 0 9 9 0 0118 0zM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75zm-.375 0h.008v.015h-.008V9.75zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75zm-.375 0h.008v.015h-.008V9.75z" />
+                        {/* Contour Lèvres */}
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9c-3 0-5 2-6 3.5 1 2 3 3.5 6 3.5s5-1.5 6-3.5c-1-1.5-3-3.5-6-3.5z" />
+                        {/* Ligne séparation */}
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M7 12.5c1.5 1 3 1.5 5 1.5s3.5-.5 5-1.5" />
                     </svg>
                 } 
             />
