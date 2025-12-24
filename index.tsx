@@ -6,7 +6,8 @@ import App from './App';
 // Enregistrement du Service Worker pour la PWA
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').then(registration => {
+    // Utilisation de ./sw.js au lieu de /sw.js pour supporter les sous-dossiers
+    navigator.serviceWorker.register('./sw.js').then(registration => {
       console.log('SW registered: ', registration);
     }).catch(registrationError => {
       console.log('SW registration failed: ', registrationError);

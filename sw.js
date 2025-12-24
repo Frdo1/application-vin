@@ -1,6 +1,6 @@
 
 // Service Worker pour Le Sommelier IA
-const CACHE_NAME = 'sommelier-ia-v6';
+const CACHE_NAME = 'sommelier-ia-v7';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

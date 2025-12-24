@@ -12,28 +12,20 @@ interface WineDetailModalProps {
   onStartTasting?: () => void;
 }
 
-// Sous-composant pour gérer le chargement individuel de chaque image
 const FoodPairingItem: React.FC<{ food: FoodPairing }> = ({ food }) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
-
-  // STRATÉGIE "RECHERCHE INSTANTANÉE" :
-  // Au lieu de générer une image (lent) ou d'utiliser un mot-clé générique (imprécis),
-  // on utilise un service de thumbnail de recherche qui prend le NOM EXACT du plat.
-  // Cela garantit que "Tournedos Rossini" affiche vraiment un Tournedos, instantanément.
   const searchQuery = encodeURIComponent(`${food.name} plat gastronomique`);
   const imageUrl = `https://tse2.mm.bing.net/th?q=${searchQuery}&w=300&h=300&c=7&rs=1&p=0`;
 
   return (
     <div className="flex flex-col items-center group cursor-default">
         <div className="w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden shadow-md border-2 border-white mb-2 relative bg-stone-100 transform group-hover:scale-105 transition-transform duration-300">
-            {/* Spinner de chargement discret */}
             {!isLoaded && !hasError && (
                 <div className="absolute inset-0 flex items-center justify-center bg-stone-100 z-10">
                     <div className="w-5 h-5 border-2 border-stone-200 border-t-wine-600 rounded-full animate-spin"></div>
                 </div>
             )}
-            
             {!hasError ? (
                 <img 
                     src={imageUrl} 
@@ -45,7 +37,6 @@ const FoodPairingItem: React.FC<{ food: FoodPairing }> = ({ food }) => {
                     referrerPolicy="no-referrer"
                 />
             ) : (
-                /* Fallback visuel élégant (Couverts) si l'image ne charge pas */
                 <div className="absolute inset-0 flex items-center justify-center bg-stone-100 text-stone-300">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8">
                         <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm-1.72 6.97a.75.75 0 10-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 101.06 1.06L12 13.06l1.72 1.72a.75.75 0 101.06-1.06L13.06 12l1.72-1.72a.75.75 0 10-1.06-1.06L12 10.94l-1.72-1.72z" clipRule="evenodd" />
@@ -63,7 +54,6 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
   const [vintagePrice, setVintagePrice] = useState<string | null>(null);
   const [loadingPrice, setLoadingPrice] = useState(false);
 
-  // Reset state when wine changes or modal opens
   useEffect(() => {
     setSelectedVintage(null);
     setVintagePrice(null);
@@ -74,16 +64,12 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
 
   const handleVintageClick = async (year: string) => {
     if (selectedVintage === year) {
-        // Deselect if clicking the same one
         setSelectedVintage(null);
         setVintagePrice(null);
         return;
     }
-
     setSelectedVintage(year);
     setLoadingPrice(true);
-    setVintagePrice(null);
-
     try {
         const price = await getVintagePrice(wine.name, year);
         setVintagePrice(price);
@@ -94,7 +80,6 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
     }
   };
 
-  // Helper colors
   const getThemeColor = (type: string) => {
     switch (type) {
       case 'Rouge': return 'bg-red-900 text-white';
@@ -115,51 +100,26 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
     }
   };
 
-  // Graphique Courbe de Vieillissement (SVG)
   const renderAgingGraph = () => {
-    // Configuration de l'échelle
     const maxYears = Math.max((wine.peakEnd || 10) + 5, 15);
-    
-    // Coordonnées X (pourcentage 0-100)
     const startX = 0;
     const peakStartX = (wine.peakStart || 3) / maxYears * 100;
     const peakEndX = (wine.peakEnd || 8) / maxYears * 100;
     const endX = 100;
-
-    // Coordonnées Y (0 = haut, 100 = bas dans le SVG)
+    const topY = 20;
     const bottomY = 100;
-    const topY = 20; // Hauteur du plateau d'apogée
 
-    // Construction du chemin SVG (Courbe de Bézier)
-    const pathData = `
-      M ${startX} ${bottomY}
-      C ${peakStartX / 2} ${bottomY}, ${peakStartX / 2} ${topY}, ${peakStartX} ${topY}
-      H ${peakEndX}
-      C ${peakEndX + (endX - peakEndX) / 2} ${topY}, ${peakEndX + (endX - peakEndX) / 2} ${bottomY}, ${endX} ${bottomY}
-      V ${bottomY} H ${startX} Z
-    `;
-
-    const strokePathData = `
-      M ${startX} ${bottomY}
-      C ${peakStartX / 2} ${bottomY}, ${peakStartX / 2} ${topY}, ${peakStartX} ${topY}
-      H ${peakEndX}
-      C ${peakEndX + (endX - peakEndX) / 2} ${topY}, ${peakEndX + (endX - peakEndX) / 2} ${bottomY}, ${endX} ${bottomY}
-    `;
-
-    // Logique anti-chevauchement : Si le début de l'apogée est dans les premiers 15%, on cache le "0 an"
-    const isStartTooClose = peakStartX < 15;
+    const pathData = `M ${startX} ${bottomY} C ${peakStartX / 2} ${bottomY}, ${peakStartX / 2} ${topY}, ${peakStartX} ${topY} H ${peakEndX} C ${peakEndX + (endX - peakEndX) / 2} ${topY}, ${peakEndX + (endX - peakEndX) / 2} ${bottomY}, ${endX} ${bottomY} V ${bottomY} H ${startX} Z`;
+    const strokePathData = `M ${startX} ${bottomY} C ${peakStartX / 2} ${bottomY}, ${peakStartX / 2} ${topY}, ${peakStartX} ${topY} H ${peakEndX} C ${peakEndX + (endX - peakEndX) / 2} ${topY}, ${peakEndX + (endX - peakEndX) / 2} ${bottomY}, ${endX} ${bottomY}`;
 
     return (
         <div className="mt-6 select-none">
-            {/* Légende phases */}
             <div className="flex justify-between text-[10px] text-stone-400 uppercase font-bold tracking-wider mb-2 px-1">
                 <span>Jeunesse</span>
                 <span className="text-wine-700">Maturité / Apogée</span>
                 <span>Déclin</span>
             </div>
-
             <div className="relative h-32 w-full">
-                {/* SVG Graph */}
                 <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
                     <defs>
                         <linearGradient id="agingGradient" x1="0" x2="1" y1="0" y2="0">
@@ -169,107 +129,38 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
                             <stop offset="100%" stopColor="#78350f" stopOpacity="0.4" />
                         </linearGradient>
                     </defs>
-                    
-                    {/* Zone remplie */}
                     <path d={pathData} fill="url(#agingGradient)" />
-                    
-                    {/* Ligne courbe */}
                     <path d={strokePathData} fill="none" stroke="#a8a29e" strokeWidth="1" strokeDasharray="2 2" />
-                    <path d={strokePathData} fill="none" stroke="#78350f" strokeWidth="2" strokeOpacity="0.1" />
-                    
-                    {/* Lignes verticales repères */}
                     <line x1={peakStartX} y1={topY} x2={peakStartX} y2={100} stroke="#9b1c1c" strokeWidth="0.5" strokeDasharray="2" opacity="0.5"/>
                     <line x1={peakEndX} y1={topY} x2={peakEndX} y2={100} stroke="#9b1c1c" strokeWidth="0.5" strokeDasharray="2" opacity="0.5"/>
                 </svg>
-
-                {/* Emojis positionnés en absolu sur la courbe */}
-                <div className="absolute bottom-0 left-0 -ml-2 mb-[-5px] bg-white rounded-full shadow-sm p-1 border border-stone-100">
-                    <span className="text-lg leading-none" role="img" aria-label="raisin">🍇</span>
-                </div>
-
-                <div 
-                    className="absolute" 
-                    style={{ left: `${peakStartX / 1.5}%`, top: '40%' }}
-                >
-                    <span className="text-xl drop-shadow-md animate-pulse" role="img" aria-label="yum">😋</span>
-                </div>
-
-                <div 
-                    className="absolute transform -translate-x-1/2 -translate-y-1/2" 
-                    style={{ left: `${peakStartX + (peakEndX - peakStartX) / 2}%`, top: '10%' }}
-                >
+                <div className="absolute bottom-0 left-0 -ml-2 mb-[-5px] bg-white rounded-full shadow-sm p-1 border border-stone-100"><span className="text-lg leading-none">🍇</span></div>
+                <div className="absolute transform -translate-x-1/2 -translate-y-1/2" style={{ left: `${peakStartX + (peakEndX - peakStartX) / 2}%`, top: '10%' }}>
                     <div className="bg-white/90 backdrop-blur px-2 py-1 rounded-full shadow-lg border border-wine-100 flex flex-col items-center">
-                        <span className="text-2xl animate-bounce" role="img" aria-label="love">😍</span>
+                        <span className="text-2xl animate-bounce">😍</span>
                         <span className="text-[9px] font-bold text-wine-800 uppercase whitespace-nowrap">Le Top !</span>
                     </div>
                 </div>
-
-                <div 
-                     className="absolute" 
-                     style={{ left: `${peakEndX + (100 - peakEndX) / 2}%`, top: '60%' }}
-                >
-                    <span className="text-lg opacity-80" role="img" aria-label="old">🥀</span>
-                </div>
-
             </div>
-
-            {/* Axe temporel */}
             <div className="relative h-px bg-stone-300 mt-0 w-full"></div>
             <div className="relative w-full h-6">
-                {/* On cache le '0 an' si le premier pic est trop proche pour éviter le chevauchement */}
-                {!isStartTooClose && (
-                    <span className="absolute left-0 text-[10px] font-bold text-stone-500 mt-1">0 an</span>
-                )}
-                
-                <span 
-                    className="absolute text-[10px] font-bold text-wine-800 mt-1 transform -translate-x-1/2 z-10"
-                    style={{ left: `${peakStartX}%` }}
-                >
-                    {wine.peakStart} ans
-                </span>
-                
-                <span 
-                    className="absolute text-[10px] font-bold text-wine-800 mt-1 transform -translate-x-1/2 z-10"
-                    style={{ left: `${peakEndX}%` }}
-                >
-                    {wine.peakEnd} ans
-                </span>
+                <span className="absolute text-[10px] font-bold text-wine-800 mt-1 transform -translate-x-1/2 z-10" style={{ left: `${peakStartX}%` }}>{wine.peakStart} ans</span>
+                <span className="absolute text-[10px] font-bold text-wine-800 mt-1 transform -translate-x-1/2 z-10" style={{ left: `${peakEndX}%` }}>{wine.peakEnd} ans</span>
             </div>
         </div>
     );
   };
 
   const getShoppingUrl = (platform: 'vinatis' | 'catawiki' | 'sharewine') => {
-    // Nettoyage du nom pour améliorer la pertinence de la recherche sur les sites marchands.
-    
-    // 1. On enlève les mentions techniques (AOC, IGP, etc.)
     let searchTerms = wine.name.replace(/\b(AOC|IGP|AOP|Vin de France)\b/gi, '');
-
-    // 2. CRUCIAL : On enlève le millésime (ex: 2015, 2020) pour la recherche marchand.
-    // Si l'année exacte n'est pas en stock, les moteurs de recherche (surtout Vinatis) renvoient 0 résultat.
-    // En cherchant uniquement le nom du domaine, l'utilisateur tombe sur tous les millésimes disponibles.
     searchTerms = searchTerms.replace(/\b(19|20)\d{2}\b/g, '');
-
-    // 3. Nettoyage des espaces multiples et trim
     searchTerms = searchTerms.replace(/\s+/g, ' ').trim();
-
-    // Encodage
-    // Vinatis gère bien les accents, donc on encode directement le nom propre nettoyé.
     const rawQuery = encodeURIComponent(searchTerms);
-    
-    // Pour d'autres plateformes qui préfèrent sans accents :
     const normalizedQuery = encodeURIComponent(searchTerms.normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
-
     switch (platform) {
-      case 'vinatis': 
-        return `https://www.vinatis.com/recherche?recherche=${rawQuery}`;
-
-      case 'catawiki': 
-        return `https://www.catawiki.com/fr/s?q=${normalizedQuery}&category=3`;
-      
-      case 'sharewine': 
-        return `https://www.sharewine.com/search?q=${normalizedQuery}`;
-      
+      case 'vinatis': return `https://www.vinatis.com/recherche?recherche=${rawQuery}`;
+      case 'catawiki': return `https://www.catawiki.com/fr/s?q=${normalizedQuery}&category=3`;
+      case 'sharewine': return `https://www.sharewine.com/search?q=${normalizedQuery}`;
       default: return '#';
     }
   };
@@ -277,150 +168,103 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-4 animate-fade-in">
       <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
-
       <div className="relative w-full h-full md:h-auto md:max-h-[90vh] md:max-w-4xl bg-[#fdfbf7] md:rounded-2xl shadow-2xl overflow-y-auto flex flex-col md:flex-row animate-in fade-in zoom-in duration-300">
         
         {/* Actions Flottantes */}
         <div className="absolute top-4 right-4 z-50 flex gap-2">
-            {/* Bouton Cave */}
             {onToggleCellar && (
                 <button 
                     onClick={() => onToggleCellar(wine)}
-                    className={`p-2 backdrop-blur rounded-full transition-all shadow-lg border
+                    className={`p-3 backdrop-blur rounded-full transition-all shadow-xl border-2
                         ${isInCellar 
-                            ? 'bg-wine-600 text-white border-wine-500 hover:bg-wine-700' 
-                            : 'bg-white/80 text-stone-400 border-stone-100 hover:text-wine-600 hover:bg-white'
+                            ? 'bg-rose-600 text-white border-rose-500 hover:bg-rose-700' 
+                            : 'bg-white/90 text-stone-400 border-stone-100 hover:text-rose-600 hover:bg-white'
                         }`}
-                    title={isInCellar ? "Retirer de ma cave" : "Ajouter à ma cave"}
                 >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill={isInCellar ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill={isInCellar ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-6 h-6">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
                     </svg>
                 </button>
             )}
-
-            {/* Bouton Fermer */}
-            <button 
-                onClick={onClose}
-                className="p-2 bg-white/80 backdrop-blur rounded-full hover:bg-white text-stone-800 transition-colors shadow-lg border border-stone-100"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+            <button onClick={onClose} className="p-3 bg-white/90 backdrop-blur rounded-full hover:bg-white text-stone-800 transition-colors shadow-xl border border-stone-100">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-6 h-6">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
             </button>
         </div>
 
-        {/* Left: Visuals */}
         <div className={`md:w-2/5 relative flex flex-col items-center justify-center p-8 overflow-visible ${wine.type === 'Rouge' ? 'bg-stone-100' : 'bg-white'}`}>
-            <div className={`absolute top-0 left-0 px-4 py-2 text-xs font-bold uppercase tracking-widest ${getThemeColor(wine.type)} rounded-br-lg shadow-md z-10`}>
-                {wine.type}
-            </div>
-
-            <div className="absolute top-4 right-4 z-50 transition-all duration-300 md:right-auto md:left-4 md:top-20">
-                 <div className={`px-5 py-3 rounded-xl border-2 shadow-2xl flex flex-col items-center transform hover:scale-105 transition-all
-                    ${selectedVintage 
-                        ? 'bg-wine-800 border-wine-600 text-white' 
-                        : 'bg-[#fff8e1] border-amber-200 text-amber-900'
-                    }`}
-                 >
-                    <span className={`text-[10px] font-bold uppercase tracking-widest leading-none mb-1 ${selectedVintage ? 'text-wine-100' : 'text-amber-800/80'}`}>
-                        {selectedVintage ? `Cote ${selectedVintage}` : 'Prix Estimé'}
-                    </span>
-                    
-                    {loadingPrice ? (
-                        <div className="h-8 flex items-center justify-center">
-                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        </div>
-                    ) : (
-                        <span className="font-serif font-black text-2xl leading-none">
-                            {selectedVintage && vintagePrice ? vintagePrice : wine.priceRange}
-                        </span>
-                    )}
+            <div className={`absolute top-0 left-0 px-4 py-2 text-xs font-bold uppercase tracking-widest ${getThemeColor(wine.type)} rounded-br-lg shadow-md z-10`}>{wine.type}</div>
+            <div className="absolute top-4 right-4 z-40 md:right-auto md:left-4 md:top-20">
+                 <div className={`px-5 py-3 rounded-xl border-2 shadow-2xl flex flex-col items-center transform hover:scale-105 transition-all ${selectedVintage ? 'bg-wine-800 border-wine-600 text-white' : 'bg-[#fff8e1] border-amber-200 text-amber-900'}`}>
+                    <span className={`text-[10px] font-bold uppercase tracking-widest leading-none mb-1 ${selectedVintage ? 'text-wine-100' : 'text-amber-800/80'}`}>{selectedVintage ? `Cote ${selectedVintage}` : 'Prix Estimé'}</span>
+                    {loadingPrice ? <div className="h-8 flex items-center justify-center"><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div></div> : <span className="font-serif font-black text-2xl leading-none">{selectedVintage && vintagePrice ? vintagePrice : wine.priceRange}</span>}
                  </div>
             </div>
-            
              <div className="relative w-full h-64 md:h-96 flex items-center justify-center mt-6 md:mt-0 z-0">
-                {wine.imageUrl ? (
-                     <img src={wine.imageUrl} alt={wine.name} className="h-full object-contain drop-shadow-2xl" />
-                ) : (
+                {wine.imageUrl ? <img src={wine.imageUrl} alt={wine.name} className="h-full object-contain drop-shadow-2xl" /> : (
                     <svg viewBox="0 0 60 160" className="h-full drop-shadow-2xl overflow-visible">
                         <path d="M20 0H40V30C40 30 55 40 55 70V150C55 155.523 50.5228 160 45 160H15C9.47715 160 5 155.523 5 150V70C5 40 20 30 20 30V0Z" fill={wine.type === 'Rouge' ? '#290e0e' : '#e6e8eb'} />
-                        <path d="M6 75C6 48 20 40 20 40V150C20 150 9 150 6 150V75Z" fill={getLiquidColor(wine.type)} fillOpacity="0.8" />
-                        <path d="M54 75C54 48 40 40 40 40V150C40 150 51 150 54 150V75Z" fill={getLiquidColor(wine.type)} fillOpacity="0.8" />
                         <path d="M20 150H40V40C40 40 30 35 20 40V150Z" fill={getLiquidColor(wine.type)} />
                         <rect x="10" y="70" width="40" height="40" rx="2" fill="#fffefc" />
-                        <rect x="25" y="95" width="10" height="10" rx="5" fill="#9b1c1c" opacity="0.1" />
-                        <path d="M15 10V150" stroke="white" strokeOpacity="0.2" strokeWidth="2" />
                     </svg>
                 )}
              </div>
-
-             {/* Tasting Button Overlay for Mobile visual balance if needed, or placed in details */}
         </div>
 
-        {/* Right: Details */}
         <div className="md:w-3/5 p-6 md:p-10 bg-[#fdfbf7] flex flex-col gap-8 relative z-10 pb-24 md:pb-10">
-            
             <div>
-                <h2 className="text-3xl md:text-4xl font-serif font-bold text-stone-900 leading-tight mb-2">
-                    {wine.name}
-                </h2>
+                <h2 className="text-3xl md:text-4xl font-serif font-bold text-stone-900 leading-tight mb-2">{wine.name}</h2>
                 <div className="flex items-center gap-2 text-wine-800 font-bold uppercase tracking-wide text-sm">
                     <span>{wine.region}</span>
                     <span className="w-1 h-1 bg-stone-300 rounded-full"></span>
                     <span>{wine.appellation}</span>
                 </div>
+                
+                {/* BOUTON D'ACTION PRINCIPAL : AJOUTER À LA CAVE */}
+                {onToggleCellar && (
+                    <div className="mt-6 flex flex-wrap gap-3">
+                        <button 
+                            onClick={() => onToggleCellar(wine)}
+                            className={`flex-grow flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-bold transition-all shadow-md active:scale-95 border-2
+                                ${isInCellar 
+                                    ? 'bg-rose-50 border-rose-200 text-rose-700' 
+                                    : 'bg-rose-600 border-rose-500 text-white hover:bg-rose-700'
+                                }`}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill={isInCellar ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+                            </svg>
+                            {isInCellar ? "Retirer de ma cave" : "Ajouter à ma cave"}
+                        </button>
+                    </div>
+                )}
             </div>
 
-            {/* BOUTON DÉGUSTATION */}
             {onStartTasting && (
-                <div 
-                    onClick={onStartTasting}
-                    className="cursor-pointer bg-white border border-stone-200 shadow-sm rounded-xl p-4 flex items-center justify-between hover:shadow-md hover:border-wine-200 transition-all group"
-                >
+                <div onClick={onStartTasting} className="cursor-pointer bg-white border border-stone-200 shadow-sm rounded-xl p-4 flex items-center justify-between hover:shadow-md hover:border-wine-200 transition-all group">
                     <div className="flex items-center gap-3">
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm
-                            ${wine.userTasting ? 'bg-wine-600' : 'bg-stone-200 text-stone-400'}`}
-                        >
-                            {wine.userTasting ? wine.userTasting.rating : '?'}
-                        </div>
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm ${wine.userTasting ? 'bg-wine-600' : 'bg-stone-200 text-stone-400'}`}>{wine.userTasting ? wine.userTasting.rating : '?'}</div>
                         <div>
-                            <p className="font-bold text-stone-800 group-hover:text-wine-800 transition-colors">
-                                {wine.userTasting ? "Ma Note de Dégustation" : "Noter ce vin"}
-                            </p>
-                            <p className="text-xs text-stone-400">
-                                {wine.userTasting ? `Dégusté le ${new Date(wine.userTasting.date).toLocaleDateString()}` : "Créer une fiche de dégustation complète"}
-                            </p>
+                            <p className="font-bold text-stone-800 group-hover:text-wine-800 transition-colors">{wine.userTasting ? "Ma Note de Dégustation" : "Noter ce vin"}</p>
+                            <p className="text-xs text-stone-400">{wine.userTasting ? `Dégusté le ${new Date(wine.userTasting.date).toLocaleDateString()}` : "Créer une fiche de dégustation complète"}</p>
                         </div>
                     </div>
-                    <div className="text-stone-300 group-hover:text-wine-600">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                        </svg>
-                    </div>
+                    <div className="text-stone-300 group-hover:text-wine-600"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg></div>
                 </div>
             )}
 
             <div className="bg-white p-6 rounded-xl border border-stone-100 shadow-sm">
                 <h3 className="font-serif text-xl font-bold text-stone-800 mb-3 border-b border-stone-100 pb-2">Dégustation Sommelier</h3>
                 <p className="text-stone-600 italic mb-4 leading-relaxed">"{wine.description}"</p>
-                
                 <div className="grid grid-cols-2 gap-4">
                     <div>
                         <h4 className="text-xs font-bold text-stone-400 uppercase mb-1">Au Nez</h4>
-                        <div className="flex flex-wrap gap-1">
-                             {wine.tastingNotes?.nose?.map((n, i) => (
-                                <span key={i} className="px-2 py-1 bg-stone-50 border border-stone-100 rounded text-xs text-stone-700">{n}</span>
-                             ))}
-                        </div>
+                        <div className="flex flex-wrap gap-1">{wine.tastingNotes?.nose?.map((n, i) => <span key={i} className="px-2 py-1 bg-stone-50 border border-stone-100 rounded text-xs text-stone-700">{n}</span>)}</div>
                     </div>
                     <div>
                         <h4 className="text-xs font-bold text-stone-400 uppercase mb-1">En Bouche</h4>
-                        <div className="flex flex-wrap gap-1">
-                             {wine.tastingNotes?.mouth?.map((n, i) => (
-                                <span key={i} className="px-2 py-1 bg-stone-50 border border-stone-100 rounded text-xs text-stone-700">{n}</span>
-                             ))}
-                        </div>
+                        <div className="flex flex-wrap gap-1">{wine.tastingNotes?.mouth?.map((n, i) => <span key={i} className="px-2 py-1 bg-stone-50 border border-stone-100 rounded text-xs text-stone-700">{n}</span>)}</div>
                     </div>
                 </div>
             </div>
@@ -429,104 +273,34 @@ const WineDetailModal: React.FC<WineDetailModalProps> = ({ wine, isOpen, onClose
                 <div>
                     <h3 className="font-serif text-lg font-bold text-stone-800 mb-2">Service</h3>
                     <div className="flex items-center gap-3 mb-2">
-                        <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-800 flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3a2.25 2.25 0 00-2.25 2.25v9.12a4.5 4.5 0 104.5 0V5.25A2.25 2.25 0 0012 3z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3" />
-                            </svg>
-                        </div>
-                        <div>
-                            <p className="text-xs text-stone-400 uppercase font-bold">Température</p>
-                            <p className="text-stone-800 font-bold">{wine.servingTemp}</p>
-                        </div>
+                        <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-800 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3a2.25 2.25 0 00-2.25 2.25v9.12a4.5 4.5 0 104.5 0V5.25A2.25 2.25 0 0012 3z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3" /></svg></div>
+                        <div><p className="text-xs text-stone-400 uppercase font-bold">Température</p><p className="text-stone-800 font-bold">{wine.servingTemp}</p></div>
                     </div>
                 </div>
                 <div>
                      <h3 className="font-serif text-lg font-bold text-stone-800 mb-2">Millésimes d'Or</h3>
-                     <p className="text-xs text-stone-400 mb-2 italic">Cliquez pour voir la cote</p>
-                     <div className="flex flex-wrap gap-1">
-                        {wine.bestVintages?.map((year, i) => (
-                            <button 
-                                key={i}
-                                onClick={() => handleVintageClick(year)}
-                                className={`px-2 py-1 border rounded text-xs font-bold transition-all duration-200
-                                    ${selectedVintage === year 
-                                        ? 'bg-wine-700 text-white border-wine-800 shadow-md scale-105' 
-                                        : 'bg-amber-50 text-amber-900 border-amber-100 hover:bg-amber-100 hover:border-amber-300'
-                                    }`}
-                            >
-                                {year}
-                            </button>
-                        ))}
-                     </div>
+                     <div className="flex flex-wrap gap-1">{wine.bestVintages?.map((year, i) => <button key={i} onClick={() => handleVintageClick(year)} className={`px-2 py-1 border rounded text-xs font-bold transition-all duration-200 ${selectedVintage === year ? 'bg-wine-700 text-white border-wine-800 shadow-md scale-105' : 'bg-amber-50 text-amber-900 border-amber-100 hover:bg-amber-100 hover:border-amber-300'}`}>{year}</button>)}</div>
                 </div>
             </div>
             
+            <div><h3 className="font-serif text-lg font-bold text-stone-800">Potentiel de Garde</h3>{renderAgingGraph()}</div>
             <div>
-                 <h3 className="font-serif text-lg font-bold text-stone-800">Potentiel de Garde</h3>
-                 {renderAgingGraph()}
+                <h3 className="font-serif text-lg font-bold text-stone-800 mb-4 flex items-center gap-2"><span>Accords Gourmands</span><span className="h-px bg-stone-200 flex-grow"></span></h3>
+                <div className="grid grid-cols-3 gap-4">{wine.foodPairing?.map((food, i) => <FoodPairingItem key={i} food={food} />)}</div>
             </div>
 
-            {/* Food Pairings */}
-            <div>
-                <h3 className="font-serif text-lg font-bold text-stone-800 mb-4 flex items-center gap-2">
-                    <span>Accords Gourmands</span>
-                    <span className="h-px bg-stone-200 flex-grow"></span>
-                </h3>
-                <div className="grid grid-cols-3 gap-4">
-                    {wine.foodPairing?.map((food, i) => (
-                        <FoodPairingItem key={i} food={food} />
-                    ))}
-                </div>
-            </div>
-
-            {/* Section Achat & Enchères */}
             <div className="pt-6 border-t border-stone-200">
-                <h3 className="font-serif text-lg font-bold text-stone-800 mb-4 flex items-center gap-2">
-                    <span>Acquérir ce vin</span>
-                    <span className="h-px bg-stone-200 flex-grow"></span>
-                </h3>
-                
+                <h3 className="font-serif text-lg font-bold text-stone-800 mb-4 flex items-center gap-2"><span>Acquérir ce vin</span><span className="h-px bg-stone-200 flex-grow"></span></h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Achat Direct */}
-                    <a 
-                        href={getShoppingUrl('vinatis')} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-between p-4 bg-white border border-stone-200 rounded-xl hover:border-wine-500 hover:shadow-md transition-all group"
-                    >
-                        <div className="flex flex-col">
-                            <span className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-1">Achat Direct</span>
-                            <span className="font-serif text-lg font-bold text-stone-800 group-hover:text-wine-700">Vinatis</span>
-                        </div>
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-stone-400 group-hover:text-wine-600">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
-                        </svg>
+                    <a href={getShoppingUrl('vinatis')} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-4 bg-white border border-stone-200 rounded-xl hover:border-wine-500 hover:shadow-md transition-all group">
+                        <div className="flex flex-col"><span className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-1">Achat Direct</span><span className="font-serif text-lg font-bold text-stone-800 group-hover:text-wine-700">Vinatis</span></div>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-stone-400 group-hover:text-wine-600"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" /></svg>
                     </a>
-
-                    {/* Enchères / Seconde main */}
                     <div className="flex flex-col gap-2">
-                         <div className="text-xs font-bold text-stone-400 uppercase tracking-widest pl-1">Enchères & Seconde Main</div>
-                         <div className="flex gap-2">
-                             {[
-                                { name: 'Catawiki', slug: 'catawiki' },
-                                { name: 'ShareWine', slug: 'sharewine' }
-                             ].map((platform) => (
-                                <a 
-                                    key={platform.slug}
-                                    href={getShoppingUrl(platform.slug as any)} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="flex-1 flex items-center justify-center py-2 px-1 bg-stone-100 rounded-lg text-sm font-bold text-stone-600 hover:bg-stone-800 hover:text-white transition-colors border border-stone-200"
-                                >
-                                    {platform.name}
-                                </a>
-                             ))}
-                         </div>
+                         <div className="flex gap-2">{[{ name: 'Catawiki', slug: 'catawiki' }, { name: 'ShareWine', slug: 'sharewine' }].map((platform) => <a key={platform.slug} href={getShoppingUrl(platform.slug as any)} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center py-2 px-1 bg-stone-100 rounded-lg text-sm font-bold text-stone-600 hover:bg-stone-800 hover:text-white transition-colors border border-stone-200">{platform.name}</a>)}</div>
                     </div>
                 </div>
             </div>
-
         </div>
       </div>
     </div>
