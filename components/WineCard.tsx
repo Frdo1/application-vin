@@ -173,11 +173,21 @@ const WineCard: React.FC<WineCardProps> = ({
           "{wine.description}"
         </p>
 
+        {wine.grapeVarieties && wine.grapeVarieties.length > 0 && (
+          <div className="mb-4 flex flex-wrap gap-1">
+            {wine.grapeVarieties.slice(0, 3).map((grape, i) => (
+              <span key={i} className="text-[10px] px-2 py-0.5 bg-stone-50 border border-stone-100 rounded-full text-stone-500 font-medium">
+                {grape}
+              </span>
+            ))}
+          </div>
+        )}
+
         <div className="mt-auto pt-4 border-t border-stone-100 flex justify-between items-center">
              <div className="flex items-center text-xs text-stone-500 font-medium">
                 <span className="mr-1">✨</span> {wine.bestVintages?.[0] || 'Top'}
              </div>
-             
+
              <div className="flex items-center text-xs text-wine-700 font-bold uppercase tracking-widest gap-1 group-hover:translate-x-1 transition-transform">
                 Fiche Sommelier
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3">

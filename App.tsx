@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { searchWines, analyzeLabel } from './services/geminiService';
 import { Wine, SearchState, ScanHistoryItem, UserTasting } from './types';
 import WineCard from './components/WineCard';
@@ -95,9 +95,16 @@ export default function App() {
   
   const [selectedWine, setSelectedWine] = useState<Wine | null>(null);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
-  
+
+  // State pour le filtre de cave
+  const [cellarFilter, setCellarFilter] = useState<string>('Tous');
+
+  // State pour le retour "plus de résultats"
+  const [noMoreResults, setNoMoreResults] = useState(false);
+
   // State pour l'autocomplétion
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [focusedSuggestion, setFocusedSuggestion] = useState(-1);
   const suggestionRef = useRef<HTMLDivElement>(null);
 
   // Load persistence
@@ -149,45 +156,45 @@ export default function App() {
     }
   };
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!state.query.trim()) return;
-    setShowSuggestions(false); // Cache les suggestions au lancement
+  // Fonction de recherche partagée pour éviter la duplication
+  const performSearch = useCallback(async (query: string) => {
+    if (!query.trim()) return;
+    setShowSuggestions(false);
+    setFocusedSuggestion(-1);
+    setNoMoreResults(false);
 
-    // Reset complet pour une nouvelle recherche
-    setState(prev => ({ ...prev, results: [], isLoading: true, error: null, hasSearched: true }));
+    setState(prev => ({ ...prev, query, results: [], isLoading: true, error: null, hasSearched: true }));
     setIsMoreLoading(false);
-    
+
     try {
-      const wines = await searchWines(state.query);
+      const wines = await searchWines(query);
       setState(prev => ({ ...prev, results: wines, isLoading: false }));
     } catch (error: any) {
       console.error("App Error:", error);
       let message = "Une erreur est survenue lors de la consultation du sommelier.";
-      
       if (error.message === "MISSING_API_KEY") {
         message = "Configuration manquante : Clé API non trouvée.";
       }
-
-      setState(prev => ({ 
-        ...prev, 
-        isLoading: false, 
-        error: message
-      }));
+      setState(prev => ({ ...prev, isLoading: false, error: message }));
     }
+  }, []);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await performSearch(state.query);
   };
 
   const handleLoadMore = async () => {
       if (!state.query || isMoreLoading) return;
-      
+
       setIsMoreLoading(true);
+      setNoMoreResults(false);
       try {
-          // On passe les noms des vins actuels pour les exclure de la prochaine page
           const currentNames = state.results.map(w => w.name);
           const newWines = await searchWines(state.query, currentNames);
-          
+
           if (newWines.length === 0) {
-              // Optionnel : Gérer le cas où il n'y a plus de résultats (ex: Toast)
+              setNoMoreResults(true);
           } else {
               setState(prev => ({
                   ...prev,
@@ -324,23 +331,25 @@ export default function App() {
   };
 
   const handleSuggestionClick = (suggestion: string) => {
-    // Set query state synchronously so the user sees it
-    setState(prev => ({ ...prev, query: suggestion }));
-    setShowSuggestions(false);
-    
-    // Trigger search manually but using the new query value (passed directly to avoid stale state issues)
-    // We replicate handleSearch logic here briefly or just call it if we could pass event.
-    // Simpler: Reuse logic
-    (async () => {
-         setState(prev => ({ ...prev, query: suggestion, results: [], isLoading: true, error: null, hasSearched: true }));
-         setIsMoreLoading(false);
-         try {
-           const wines = await searchWines(suggestion);
-           setState(prev => ({ ...prev, results: wines, isLoading: false }));
-         } catch (error: any) {
-             setState(prev => ({ ...prev, isLoading: false, error: "Erreur lors de la recherche." }));
-         }
-    })();
+    performSearch(suggestion);
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || filteredSuggestions.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setFocusedSuggestion(prev => (prev + 1) % filteredSuggestions.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setFocusedSuggestion(prev => (prev <= 0 ? filteredSuggestions.length - 1 : prev - 1));
+    } else if (e.key === 'Enter' && focusedSuggestion >= 0) {
+      e.preventDefault();
+      handleSuggestionClick(filteredSuggestions[focusedSuggestion]);
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+      setFocusedSuggestion(-1);
+    }
   };
 
   // Helper de normalisation (retire les accents)
@@ -421,11 +430,17 @@ export default function App() {
                         onChange={(e) => {
                             setState(prev => ({ ...prev, query: e.target.value }));
                             setShowSuggestions(true);
+                            setFocusedSuggestion(-1);
                         }}
                         onFocus={() => setShowSuggestions(true)}
+                        onKeyDown={handleInputKeyDown}
                         placeholder="Décrivez un vin..."
                         className="w-full pl-6 pr-24 py-4 text-lg bg-white border-2 border-stone-200 rounded-full shadow-sm focus:outline-none focus:border-wine-500 focus:ring-4 focus:ring-wine-50 transition-all placeholder:text-stone-300 text-stone-800"
                         autoComplete="off"
+                        aria-autocomplete="list"
+                        aria-haspopup="listbox"
+                        role="combobox"
+                        aria-expanded={showSuggestions && filteredSuggestions.length > 0}
                         />
                         
                         <div className="absolute right-2 flex gap-1 items-center">
@@ -454,15 +469,15 @@ export default function App() {
 
                     {showSuggestions && filteredSuggestions.length > 0 && (
                     <div ref={suggestionRef} className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-stone-100 overflow-hidden animate-fade-in z-50">
-                        <ul>
+                        <ul role="listbox">
                         {filteredSuggestions.map((suggestion, index) => (
-                            <li key={index}>
+                            <li key={index} role="option" aria-selected={focusedSuggestion === index}>
                             <button
                                 type="button"
                                 onClick={() => handleSuggestionClick(suggestion)}
-                                className="w-full text-left px-6 py-3 hover:bg-stone-50 text-stone-700 font-serif border-b border-stone-50 last:border-0 transition-colors flex items-center gap-3"
+                                className={`w-full text-left px-6 py-3 text-stone-700 font-serif border-b border-stone-50 last:border-0 transition-colors flex items-center gap-3 ${focusedSuggestion === index ? 'bg-wine-50 text-wine-900' : 'hover:bg-stone-50'}`}
                             >
-                                <span className="text-stone-300">
+                                <span className={focusedSuggestion === index ? 'text-wine-400' : 'text-stone-300'}>
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
                                 </svg>
@@ -529,24 +544,30 @@ export default function App() {
                         
                         {/* Pagination / Load More Button */}
                         {!state.isLoading && (
-                            <div className="flex justify-center pb-8">
-                                <button
-                                    onClick={handleLoadMore}
-                                    disabled={isMoreLoading}
-                                    className="group relative inline-flex items-center justify-center gap-2 px-8 py-4 bg-white border border-stone-200 rounded-full shadow-sm hover:shadow-md hover:border-wine-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {isMoreLoading ? (
-                                        <>
-                                            <div className="w-5 h-5 border-2 border-stone-300 border-t-wine-600 rounded-full animate-spin"></div>
-                                            <span className="text-stone-500 font-serif italic">Recherche en cours...</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <PlusIcon />
-                                            <span className="text-stone-800 font-serif font-bold group-hover:text-wine-800 transition-colors">Voir d'autres vins</span>
-                                        </>
-                                    )}
-                                </button>
+                            <div className="flex flex-col items-center gap-3 pb-8">
+                                {noMoreResults ? (
+                                    <p className="text-stone-400 text-sm font-serif italic">
+                                        Tous les résultats pertinents ont été affichés.
+                                    </p>
+                                ) : (
+                                    <button
+                                        onClick={handleLoadMore}
+                                        disabled={isMoreLoading}
+                                        className="group relative inline-flex items-center justify-center gap-2 px-8 py-4 bg-white border border-stone-200 rounded-full shadow-sm hover:shadow-md hover:border-wine-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {isMoreLoading ? (
+                                            <>
+                                                <div className="w-5 h-5 border-2 border-stone-300 border-t-wine-600 rounded-full animate-spin"></div>
+                                                <span className="text-stone-500 font-serif italic">Recherche en cours...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <PlusIcon />
+                                                <span className="text-stone-800 font-serif font-bold group-hover:text-wine-800 transition-colors">Voir d'autres vins</span>
+                                            </>
+                                        )}
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>
@@ -568,6 +589,24 @@ export default function App() {
                  <div className="text-center mb-8">
                      <h1 className="text-4xl font-serif font-bold text-stone-900">Ma Cave</h1>
                  </div>
+
+                 {/* FILTRES PAR TYPE */}
+                 {cellar.length > 0 && (() => {
+                    const types = ['Tous', ...Array.from(new Set(cellar.map(w => w.type)))];
+                    return (
+                        <div className="flex flex-wrap justify-center gap-2 mb-6">
+                            {types.map(type => (
+                                <button
+                                    key={type}
+                                    onClick={() => setCellarFilter(type)}
+                                    className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border transition-colors ${cellarFilter === type ? 'bg-wine-800 text-white border-wine-800' : 'bg-white text-stone-500 border-stone-200 hover:border-wine-300 hover:text-wine-700'}`}
+                                >
+                                    {type}
+                                </button>
+                            ))}
+                        </div>
+                    );
+                 })()}
 
                  {/* DASHBOARD STATS */}
                  {cellar.length > 0 && (
@@ -604,25 +643,35 @@ export default function App() {
                          Trouver un vin
                      </button>
                  </div>
-             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {cellar.map((wine, index) => (
-                        <WineCard 
-                            key={`cellar-${index}`} 
-                            wine={wine} 
-                            index={index} 
-                            onClick={() => setSelectedWine(wine)}
-                            isInCellar={true}
-                            onToggleCellar={(e) => {
-                                e.stopPropagation();
-                                toggleCellar(wine);
-                            }}
-                            isCellarMode={true}
-                            onUpdateQuantity={(change) => updateQuantity(wine, change)}
-                        />
-                    ))}
-                </div>
-             )}
+             ) : (() => {
+                const filteredCellar = cellarFilter === 'Tous' ? cellar : cellar.filter(w => w.type === cellarFilter);
+                return (
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            {filteredCellar.map((wine, index) => (
+                                <WineCard
+                                    key={`cellar-${wine.name}`}
+                                    wine={wine}
+                                    index={index}
+                                    onClick={() => setSelectedWine(wine)}
+                                    isInCellar={true}
+                                    onToggleCellar={(e) => {
+                                        e.stopPropagation();
+                                        toggleCellar(wine);
+                                    }}
+                                    isCellarMode={true}
+                                    onUpdateQuantity={(change) => updateQuantity(wine, change)}
+                                />
+                            ))}
+                        </div>
+                        {filteredCellar.length === 0 && (
+                            <div className="text-center py-12 text-stone-400 text-sm">
+                                Aucun vin de type <span className="font-bold text-wine-700">{cellarFilter}</span> dans votre cave.
+                            </div>
+                        )}
+                    </>
+                );
+             })()}
         </div>
       )}
 
