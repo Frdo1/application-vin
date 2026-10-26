@@ -24,6 +24,8 @@ export function errorMessage(e: unknown): string {
     case 'QUOTA':
     case 'RATE_LIMIT':
       return 'Trop de demandes pour le moment. Réessayez dans quelques minutes.';
+    case 'TIMEOUT':
+      return 'Le sommelier a mis trop de temps à répondre. Réessayez.';
     case 'BAD_IMAGE':
       return 'Photo trop lourde ou illisible. Réessayez.';
     default:

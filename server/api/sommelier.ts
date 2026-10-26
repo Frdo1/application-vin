@@ -1,7 +1,7 @@
 // Fonction Vercel : seul endroit qui connaît la clé Gemini.
 // L'appli Android appelle POST /api/sommelier ; la clé reste sur le serveur
 // (variable d'environnement GEMINI_API_KEY) et n'apparaît jamais dans l'APK.
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 
 import { cleanWines, extractJSON } from '../lib/json.js';
 import { LABEL_PROMPT, pricePrompt, searchPrompt } from '../lib/prompts.js';
@@ -22,6 +22,11 @@ function tooMany(ip: string, limit = 40, windowMs = 10 * 60_000) {
   if (hits.size > 5000) hits.clear();
   return list.length > limit;
 }
+
+// Gemini 3 réfléchit longuement par défaut : sans limite, une recherche dépassait
+// les 60 s autorisées par Vercel. On limite la réflexion et on coupe à 50 s.
+const thinking = (level: ThinkingLevel) => ({ thinkingConfig: { thinkingLevel: level } });
+const deadline = (ms = 50_000) => AbortSignal.timeout(ms);
 
 let client: GoogleGenAI | null = null;
 function ai() {
@@ -52,7 +57,7 @@ export default async function handler(req: Req, res: Res) {
         const r = await ai().models.generateContent({
           model: MODEL,
           contents: searchPrompt(query, exclude),
-          config: { responseMimeType: 'application/json', temperature: 0.6 },
+          config: { responseMimeType: 'application/json', temperature: 0.6, ...thinking(ThinkingLevel.MINIMAL), abortSignal: deadline() },
         });
         return res.status(200).json({ wines: cleanWines(extractJSON(r.text || '')) });
       }
@@ -62,7 +67,7 @@ export default async function handler(req: Req, res: Res) {
         const r = await ai().models.generateContent({
           model: MODEL,
           contents: [{ role: 'user', parts: [{ inlineData: { mimeType: 'image/jpeg', data: image } }, { text: LABEL_PROMPT }] }],
-          config: { tools: [{ googleSearch: {} }], temperature: 0.2 },
+          config: { tools: [{ googleSearch: {} }], temperature: 0.2, ...thinking(ThinkingLevel.LOW), abortSignal: deadline() },
         });
         return res.status(200).json({ wines: cleanWines(extractJSON(r.text || ''), 1), sources: sourcesOf(r) });
       }
@@ -73,7 +78,7 @@ export default async function handler(req: Req, res: Res) {
         const r = await ai().models.generateContent({
           model: MODEL,
           contents: pricePrompt(name, vintage),
-          config: { tools: [{ googleSearch: {} }], temperature: 0 },
+          config: { tools: [{ googleSearch: {} }], temperature: 0, ...thinking(ThinkingLevel.MINIMAL), abortSignal: deadline(40_000) },
         });
         const data = extractJSON(r.text || '') as { price?: string; source?: string } | null;
         return res.status(200).json({
@@ -91,6 +96,7 @@ export default async function handler(req: Req, res: Res) {
     if (msg.includes('MISSING_API_KEY')) return res.status(500).json({ error: 'MISSING_API_KEY' });
     if (/API key not valid|API_KEY_INVALID|PERMISSION_DENIED/i.test(msg)) return res.status(500).json({ error: 'INVALID_API_KEY' });
     if (/429|RESOURCE_EXHAUSTED|quota/i.test(msg)) return res.status(503).json({ error: 'QUOTA' });
+    if (/abort|timeout|timed out/i.test(msg)) return res.status(504).json({ error: 'TIMEOUT' });
     return res.status(502).json({ error: 'AI_ERROR' });
   }
 }
