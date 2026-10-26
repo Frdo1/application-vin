@@ -9,6 +9,8 @@ import { LABEL_PROMPT, pricePrompt, searchPrompt } from '../lib/prompts.js';
 export const config = { maxDuration: 60 };
 
 const MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+// Modèle de secours, plus léger, quand le principal est saturé ou trop lent.
+const FALLBACK = process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.5-flash-lite';
 const MAX_IMAGE_CHARS = 3_000_000; // ~2,2 Mo d'image en base64 (l'appli envoie ~300 Ko)
 
 // Limite simple par adresse IP pour éviter qu'un inconnu vide le quota.
@@ -24,9 +26,34 @@ function tooMany(ip: string, limit = 40, windowMs = 10 * 60_000) {
 }
 
 // Gemini 3 réfléchit longuement par défaut : sans limite, une recherche dépassait
-// les 60 s autorisées par Vercel. On limite la réflexion et on coupe à 50 s.
-const thinking = (level: ThinkingLevel) => ({ thinkingConfig: { thinkingLevel: level } });
-const deadline = (ms = 50_000) => AbortSignal.timeout(ms);
+// les 60 s autorisées par Vercel. On limite la réflexion, et si le modèle principal
+// est saturé (503) ou trop lent, on bascule sur le modèle de secours.
+const LOW = { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } };
+const BUDGET_MS = 55_000;
+
+type GenParams = { contents: any; config: Record<string, unknown> };
+
+async function generate({ contents, config }: GenParams, firstTryMs = 30_000) {
+  const t0 = Date.now();
+  try {
+    return await ai().models.generateContent({
+      model: MODEL,
+      contents,
+      config: { ...config, ...LOW, abortSignal: AbortSignal.timeout(firstTryMs) },
+    });
+  } catch (e: any) {
+    const msg = String(e?.message || e);
+    const retryable = /503|UNAVAILABLE|overloaded|high demand|abort|timeout|500|INTERNAL/i.test(msg);
+    if (!retryable || MODEL === FALLBACK) throw e;
+    console.warn('sommelier fallback', MODEL, '->', FALLBACK, msg.slice(0, 160));
+    const left = Math.max(8_000, BUDGET_MS - (Date.now() - t0));
+    return ai().models.generateContent({
+      model: FALLBACK,
+      contents,
+      config: { ...config, abortSignal: AbortSignal.timeout(left) },
+    });
+  }
+}
 
 let client: GoogleGenAI | null = null;
 function ai() {
@@ -54,31 +81,31 @@ export default async function handler(req: Req, res: Res) {
         const query = String(body.query || '').trim().slice(0, 200);
         if (!query) return res.status(400).json({ error: 'EMPTY_QUERY' });
         const exclude = Array.isArray(body.exclude) ? body.exclude.map(String).slice(0, 60) : [];
-        const r = await ai().models.generateContent({
-          model: MODEL,
+        const r = await generate({
           contents: searchPrompt(query, exclude),
-          config: { responseMimeType: 'application/json', temperature: 0.6, ...thinking(ThinkingLevel.LOW), abortSignal: deadline() },
+          config: { responseMimeType: 'application/json', temperature: 0.6 },
         });
         return res.status(200).json({ wines: cleanWines(extractJSON(r.text || '')) });
       }
       case 'label': {
         const image = String(body.image || '').replace(/^data:image\/\w+;base64,/, '');
         if (!image || image.length > MAX_IMAGE_CHARS) return res.status(400).json({ error: 'BAD_IMAGE' });
-        const r = await ai().models.generateContent({
-          model: MODEL,
-          contents: [{ role: 'user', parts: [{ inlineData: { mimeType: 'image/jpeg', data: image } }, { text: LABEL_PROMPT }] }],
-          config: { tools: [{ googleSearch: {} }], temperature: 0.2, ...thinking(ThinkingLevel.LOW), abortSignal: deadline() },
-        });
+        const r = await generate(
+          {
+            contents: [{ role: 'user', parts: [{ inlineData: { mimeType: 'image/jpeg', data: image } }, { text: LABEL_PROMPT }] }],
+            config: { tools: [{ googleSearch: {} }], temperature: 0.2 },
+          },
+          35_000,
+        );
         return res.status(200).json({ wines: cleanWines(extractJSON(r.text || ''), 1), sources: sourcesOf(r) });
       }
       case 'price': {
         const name = String(body.name || '').trim().slice(0, 120);
         const vintage = String(body.vintage || '').match(/\b(18|19|20)\d{2}\b/)?.[0];
         if (!name || !vintage) return res.status(400).json({ error: 'BAD_PRICE_QUERY' });
-        const r = await ai().models.generateContent({
-          model: MODEL,
+        const r = await generate({
           contents: pricePrompt(name, vintage),
-          config: { tools: [{ googleSearch: {} }], temperature: 0, ...thinking(ThinkingLevel.LOW), abortSignal: deadline(40_000) },
+          config: { tools: [{ googleSearch: {} }], temperature: 0 },
         });
         const data = extractJSON(r.text || '') as { price?: string; source?: string } | null;
         return res.status(200).json({
@@ -95,7 +122,7 @@ export default async function handler(req: Req, res: Res) {
     console.error('sommelier error', body.action, msg.slice(0, 500));
     if (msg.includes('MISSING_API_KEY')) return res.status(500).json({ error: 'MISSING_API_KEY' });
     if (/API key not valid|API_KEY_INVALID|PERMISSION_DENIED/i.test(msg)) return res.status(500).json({ error: 'INVALID_API_KEY' });
-    if (/429|RESOURCE_EXHAUSTED|quota/i.test(msg)) return res.status(503).json({ error: 'QUOTA' });
+    if (/429|RESOURCE_EXHAUSTED|quota|503|UNAVAILABLE|high demand/i.test(msg)) return res.status(503).json({ error: 'QUOTA' });
     if (/abort|timeout|timed out/i.test(msg)) return res.status(504).json({ error: 'TIMEOUT' });
     return res.status(502).json({ error: 'AI_ERROR' });
   }
