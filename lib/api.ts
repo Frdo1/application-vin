@@ -60,12 +60,12 @@ export async function searchWines(query: string, exclude: string[] = []) {
 }
 
 export async function analyzeLabel(imageBase64: string) {
-  const r = await call<{ wines: Wine[]; sources: Wine['sources'] }>({ action: 'label', image: imageBase64 }, 90_000);
+  const r = await call<{ wines: Wine[]; sources: Wine['sources']; verified?: boolean }>({ action: 'label', image: imageBase64 }, 90_000);
   return (r.wines || []).map((w) => ({ ...w, sources: r.sources }));
 }
 
 export async function vintagePrice(name: string, vintage: string) {
-  return call<{ price: string; source: string; sources: { title: string; url: string }[] }>({
+  return call<{ price: string; source: string; sources: { title: string; url: string }[]; verified?: boolean }>({
     action: 'price',
     name,
     vintage,

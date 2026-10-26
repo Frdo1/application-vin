@@ -35,24 +35,36 @@ type GenParams = { contents: any; config: Record<string, unknown> };
 
 async function generate({ contents, config }: GenParams, firstTryMs = 30_000) {
   const t0 = Date.now();
-  try {
-    return await ai().models.generateContent({
-      model: MODEL,
-      contents,
-      config: { ...config, ...LOW, abortSignal: AbortSignal.timeout(firstTryMs) },
-    });
-  } catch (e: any) {
-    const msg = String(e?.message || e);
-    const retryable = /503|UNAVAILABLE|overloaded|high demand|abort|timeout|500|INTERNAL/i.test(msg);
-    if (!retryable || MODEL === FALLBACK) throw e;
-    console.warn('sommelier fallback', MODEL, '->', FALLBACK, msg.slice(0, 160));
-    const left = Math.max(8_000, BUDGET_MS - (Date.now() - t0));
-    return ai().models.generateContent({
-      model: FALLBACK,
-      contents,
-      config: { ...config, abortSignal: AbortSignal.timeout(left) },
-    });
+  const left = () => Math.max(8_000, BUDGET_MS - (Date.now() - t0));
+  const attempts: { model: string; config: Record<string, unknown>; ms: () => number }[] = [
+    { model: MODEL, config: { ...config, ...LOW }, ms: () => firstTryMs },
+    { model: FALLBACK, config, ms: left },
+  ];
+  // Dernier recours sans recherche Google (le quota gratuit de recherche est faible) :
+  // la réponse est alors marquée comme non vérifiée.
+  if (config.tools) {
+    const { tools: _t, ...noTools } = config;
+    attempts.push({ model: FALLBACK, config: noTools, ms: left });
   }
+  let last: unknown;
+  for (const a of attempts) {
+    if (a.model === MODEL && a !== attempts[0]) continue;
+    try {
+      const r = await ai().models.generateContent({
+        model: a.model,
+        contents,
+        config: { ...a.config, abortSignal: AbortSignal.timeout(a.ms()) },
+      });
+      return { r, grounded: !!a.config.tools };
+    } catch (e: any) {
+      last = e;
+      const msg = String(e?.message || e);
+      const retryable = /429|RESOURCE_EXHAUSTED|quota|503|UNAVAILABLE|overloaded|high demand|abort|timeout|500|INTERNAL/i.test(msg);
+      console.warn('sommelier attempt failed', a.model, a.config.tools ? 'avec recherche' : 'sans recherche', msg.slice(0, 160));
+      if (!retryable || Date.now() - t0 > BUDGET_MS - 8_000) break;
+    }
+  }
+  throw last;
 }
 
 let client: GoogleGenAI | null = null;
@@ -81,7 +93,7 @@ export default async function handler(req: Req, res: Res) {
         const query = String(body.query || '').trim().slice(0, 200);
         if (!query) return res.status(400).json({ error: 'EMPTY_QUERY' });
         const exclude = Array.isArray(body.exclude) ? body.exclude.map(String).slice(0, 60) : [];
-        const r = await generate({
+        const { r } = await generate({
           contents: searchPrompt(query, exclude),
           config: { responseMimeType: 'application/json', temperature: 0.6 },
         });
@@ -90,20 +102,20 @@ export default async function handler(req: Req, res: Res) {
       case 'label': {
         const image = String(body.image || '').replace(/^data:image\/\w+;base64,/, '');
         if (!image || image.length > MAX_IMAGE_CHARS) return res.status(400).json({ error: 'BAD_IMAGE' });
-        const r = await generate(
+        const { r, grounded } = await generate(
           {
             contents: [{ role: 'user', parts: [{ inlineData: { mimeType: 'image/jpeg', data: image } }, { text: LABEL_PROMPT }] }],
             config: { tools: [{ googleSearch: {} }], temperature: 0.2 },
           },
           35_000,
         );
-        return res.status(200).json({ wines: cleanWines(extractJSON(r.text || ''), 1), sources: sourcesOf(r) });
+        return res.status(200).json({ wines: cleanWines(extractJSON(r.text || ''), 1), sources: sourcesOf(r), verified: grounded });
       }
       case 'price': {
         const name = String(body.name || '').trim().slice(0, 120);
         const vintage = String(body.vintage || '').match(/\b(18|19|20)\d{2}\b/)?.[0];
         if (!name || !vintage) return res.status(400).json({ error: 'BAD_PRICE_QUERY' });
-        const r = await generate({
+        const { r, grounded } = await generate({
           contents: pricePrompt(name, vintage),
           config: { tools: [{ googleSearch: {} }], temperature: 0 },
         });
@@ -112,6 +124,7 @@ export default async function handler(req: Req, res: Res) {
           price: String(data?.price || '').slice(0, 40),
           source: String(data?.source || '').slice(0, 60),
           sources: sourcesOf(r),
+          verified: grounded,
         });
       }
       default:

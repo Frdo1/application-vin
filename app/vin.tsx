@@ -13,7 +13,7 @@ import { drinkStatus, fmtDate, shopLinks } from '@/lib/wine';
 export default function VinScreen() {
   const { current: wine, findInCellar, addToCellar, removeFromCellar } = useStore();
   const [vintage, setVintage] = useState(wine?.vintage ?? '');
-  const [price, setPrice] = useState<{ value: string; source: string; links: { title: string; url: string }[] } | null>(null);
+  const [price, setPrice] = useState<{ value: string; source: string; links: { title: string; url: string }[]; verified: boolean } | null>(null);
   const [priceLoading, setPriceLoading] = useState(false);
   const [priceError, setPriceError] = useState('');
 
@@ -46,7 +46,7 @@ export default function VinScreen() {
     setPriceLoading(true);
     try {
       const r = await vintagePrice(wine.name, y);
-      if (r.price) setPrice({ value: r.price, source: r.source, links: r.sources || [] });
+      if (r.price) setPrice({ value: r.price, source: r.source, links: r.sources || [], verified: r.verified !== false });
       else setPriceError('Pas de prix fiable trouvé pour ce millésime.');
     } catch (e) {
       setPriceError(errorMessage(e));
@@ -114,7 +114,9 @@ export default function VinScreen() {
           {!!priceError && <Text style={[S.muted, { color: '#B91C1C', marginTop: 6 }]}>{priceError}</Text>}
           {price && (
             <Text style={[S.muted, { marginTop: 6 }]}>
-              Prix trouvé par recherche Google{price.source ? ` (${price.source})` : ''}. À vérifier avant d’acheter ou de vendre.
+              {price.verified
+                ? `Prix trouvé par recherche Google${price.source ? ` (${price.source})` : ''}. À vérifier avant d’acheter ou de vendre.`
+                : 'Estimation de l’IA, non vérifiée sur le web (limite de recherche atteinte). Comparez sur iDealwine ou Wine-Searcher.'}
             </Text>
           )}
 

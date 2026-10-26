@@ -38,13 +38,13 @@ ${WINE_SCHEMA_EXAMPLE}`;
 
 export const LABEL_PROMPT = `Tâche : identifie le vin sur cette photo d'étiquette.
 1. Lis l'étiquette : domaine / château, cuvée, appellation, millésime.
-2. Utilise la recherche Google pour vérifier le vin et trouver son prix actuel constaté en France pour ce millésime, ainsi que son potentiel de garde.
+2. Si la recherche Google est disponible, utilise-la pour vérifier le vin et trouver son prix actuel constaté en France pour ce millésime, ainsi que son potentiel de garde.
 3. Si l'étiquette est illisible ou si ce n'est pas un vin, réponds [].
 Réponds UNIQUEMENT avec un tableau JSON contenant un seul vin, de cette forme :
 ${WINE_SCHEMA_EXAMPLE}`;
 
 export function pricePrompt(name: string, vintage: string) {
-  return `Utilise la recherche Google pour trouver le prix actuel constaté en France d'une bouteille 75 cl de "${name}", millésime ${vintage}.
+  return `Trouve (avec la recherche Google si elle est disponible) le prix actuel constaté en France d'une bouteille 75 cl de "${name}", millésime ${vintage}.
 Réponds UNIQUEMENT avec un objet JSON : {"price": "fourchette courte en euros, ex : 120-140 €", "source": "nom du site principal consulté"}.
 Si tu ne trouves rien de fiable : {"price": "", "source": ""}.`;
 }
