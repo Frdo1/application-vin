@@ -1,0 +1,71 @@
+import { StyleSheet } from 'react-native';
+
+export const C = {
+  bg: '#FDFBF7',
+  card: '#FFFFFF',
+  border: '#E7E5E4',
+  text: '#1C1917',
+  muted: '#78716C',
+  faint: '#A8A29E',
+  wine: '#9B1C1C',
+  wineDark: '#771D1D',
+  wineSoft: '#FDF2F2',
+  gold: '#FFF8E1',
+  goldText: '#92400E',
+  cyan: '#0E7490',
+  cyanSoft: '#ECFEFF',
+  rose: '#E11D48',
+  white: '#fff',
+};
+
+export const F = {
+  serif: 'PlayfairDisplay_700Bold',
+  serifRegular: 'PlayfairDisplay_400Regular',
+  serifItalic: 'PlayfairDisplay_400Regular_Italic',
+  sans: 'Lato_400Regular',
+  sansBold: 'Lato_700Bold',
+  sansLight: 'Lato_300Light',
+};
+
+export const S = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: C.bg },
+  h1: { fontFamily: F.serif, fontSize: 32, color: C.text, textAlign: 'center' },
+  h2: { fontFamily: F.serif, fontSize: 22, color: C.text },
+  h3: { fontFamily: F.serif, fontSize: 18, color: C.text, marginBottom: 8 },
+  body: { fontFamily: F.sans, fontSize: 15, color: C.text, lineHeight: 22 },
+  muted: { fontFamily: F.sans, fontSize: 14, color: C.muted },
+  overline: { fontFamily: F.sansBold, fontSize: 11, letterSpacing: 1.2, color: C.faint, textTransform: 'uppercase' },
+  card: { backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: 18 },
+  chip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: '#FAFAF9',
+    borderWidth: 1,
+    borderColor: '#F0EEEC',
+  },
+  chipText: { fontFamily: F.sans, fontSize: 13, color: '#44403C' },
+  btn: { backgroundColor: C.wine, borderRadius: 14, paddingVertical: 15, paddingHorizontal: 20, alignItems: 'center', justifyContent: 'center' },
+  btnText: { fontFamily: F.sansBold, fontSize: 16, color: C.white },
+  btnGhost: {
+    backgroundColor: C.white,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: C.border,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  input: {
+    backgroundColor: C.white,
+    borderWidth: 2,
+    borderColor: C.border,
+    borderRadius: 30,
+    paddingHorizontal: 20,
+    paddingVertical: 13,
+    fontSize: 17,
+    fontFamily: F.sans,
+    color: C.text,
+  },
+});

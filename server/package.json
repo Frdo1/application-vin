@@ -1,0 +1,13 @@
+{
+  "name": "sommelier-ia-server",
+  "private": true,
+  "type": "module",
+  "description": "Fonction Vercel qui interroge Gemini pour l'appli Le Sommelier IA (la clé reste côté serveur).",
+  "dependencies": {
+    "@google/genai": "^2.31.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.0"
+  }
+}
