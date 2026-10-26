@@ -27,7 +27,10 @@
         "android.permission.READ_MEDIA_AUDIO"
       ]
     },
-    "web": { "output": "single", "favicon": "./assets/images/favicon.png" },
+    "web": {
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
+    },
     "plugins": [
       "expo-router",
       [
@@ -52,7 +55,10 @@
     ],
     "extra": {
       "serverUrl": "https://application-vin.vercel.app/api/sommelier",
-      "router": {}
+      "router": {},
+      "eas": {
+        "projectId": "81d55090-680b-484b-8e28-e7fcf1892624"
+      }
     }
   }
 }
