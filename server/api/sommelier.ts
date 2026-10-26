@@ -57,7 +57,7 @@ export default async function handler(req: Req, res: Res) {
         const r = await ai().models.generateContent({
           model: MODEL,
           contents: searchPrompt(query, exclude),
-          config: { responseMimeType: 'application/json', temperature: 0.6, ...thinking(ThinkingLevel.MINIMAL), abortSignal: deadline() },
+          config: { responseMimeType: 'application/json', temperature: 0.6, ...thinking(ThinkingLevel.LOW), abortSignal: deadline() },
         });
         return res.status(200).json({ wines: cleanWines(extractJSON(r.text || '')) });
       }
@@ -78,7 +78,7 @@ export default async function handler(req: Req, res: Res) {
         const r = await ai().models.generateContent({
           model: MODEL,
           contents: pricePrompt(name, vintage),
-          config: { tools: [{ googleSearch: {} }], temperature: 0, ...thinking(ThinkingLevel.MINIMAL), abortSignal: deadline(40_000) },
+          config: { tools: [{ googleSearch: {} }], temperature: 0, ...thinking(ThinkingLevel.LOW), abortSignal: deadline(40_000) },
         });
         const data = extractJSON(r.text || '') as { price?: string; source?: string } | null;
         return res.status(200).json({
