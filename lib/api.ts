@@ -20,6 +20,8 @@ export function errorMessage(e: unknown): string {
   switch (code) {
     case 'FREE_LIMIT':
       return 'Vos recherches gratuites du jour sont épuisées. Revenez demain ou passez en Premium.';
+    case 'PREMIUM_LIMIT':
+      return 'Vous avez fait beaucoup de recherches aujourd’hui. Le sommelier se repose, revenez demain !';
     case 'NETWORK':
       return 'Pas de connexion au sommelier. Vérifiez votre réseau.';
     case 'MISSING_API_KEY':
@@ -39,7 +41,9 @@ export function errorMessage(e: unknown): string {
 
 async function call<T>(body: object, timeoutMs = 60_000): Promise<T> {
   // Quota gratuit : une demande réservée avant l'appel, rendue si l'appel échoue.
-  if (!(await takeQuota())) throw new ApiError('FREE_LIMIT');
+  const q = await takeQuota();
+  if (q === 'free_limit') throw new ApiError('FREE_LIMIT');
+  if (q === 'premium_limit') throw new ApiError('PREMIUM_LIMIT');
   try {
     const data = await send<T>(body, timeoutMs);
     setTimeout(maybeShowInterstitial, 1200);

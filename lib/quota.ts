@@ -4,6 +4,8 @@ import { isPremium } from './premium';
 
 /** Nombre de demandes à l'IA (recherche, étiquette, cote) offertes chaque jour sans Premium. */
 export const FREE_PER_DAY = 5;
+/** Limite haute discrète pour les abonnés Premium (protège la facture Gemini). */
+export const PREMIUM_PER_DAY = 100;
 const KEY = 'sommelier:quota';
 
 let day = '';
@@ -40,6 +42,7 @@ async function save() {
   listeners.forEach((cb) => cb());
 }
 
+const limit = () => (isPremium() ? PREMIUM_PER_DAY : FREE_PER_DAY);
 export const remaining = () => (day === today() ? Math.max(0, FREE_PER_DAY - used) : FREE_PER_DAY);
 
 export function onQuotaChange(cb: () => void) {
@@ -58,22 +61,23 @@ export function onPaywall(cb: () => void) {
 }
 export const openPaywall = () => paywall.forEach((cb) => cb());
 
-/** Réserve une demande. Renvoie false (et ouvre l'écran Premium) si le quota du jour est épuisé. */
-export async function takeQuota() {
-  if (isPremium()) return true;
+export type QuotaResult = 'ok' | 'free_limit' | 'premium_limit';
+
+/** Réserve une demande. En gratuit, ouvre l'écran Premium quand le quota du jour est épuisé. */
+export async function takeQuota(): Promise<QuotaResult> {
   await load();
-  if (used >= FREE_PER_DAY) {
+  if (used >= limit()) {
+    if (isPremium()) return 'premium_limit';
     openPaywall();
-    return false;
+    return 'free_limit';
   }
   used++;
   await save();
-  return true;
+  return 'ok';
 }
 
 /** Rend une demande qui a échoué (réseau, serveur) : on ne compte que les réponses obtenues. */
 export async function refundQuota() {
-  if (isPremium()) return;
   await load();
   used = Math.max(0, used - 1);
   await save();
