@@ -5,3 +5,6 @@ export const onAdsReady = (_cb: (ok: boolean) => void) => () => {};
 export async function initAds() {}
 export function maybeShowInterstitial() {}
 export async function openPrivacyOptions() {}
+export async function showRewarded() {
+  return false;
+}

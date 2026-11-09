@@ -39,7 +39,7 @@ export function errorMessage(e: unknown): string {
   }
 }
 
-async function call<T>(body: object, timeoutMs = 60_000): Promise<T> {
+async function call<T>(body: Record<string, any>, timeoutMs = 60_000): Promise<T> {
   // Quota gratuit : une demande réservée avant l'appel, rendue si l'appel échoue.
   const q = await takeQuota();
   if (q === 'free_limit') throw new ApiError('FREE_LIMIT');
@@ -54,17 +54,37 @@ async function call<T>(body: object, timeoutMs = 60_000): Promise<T> {
   }
 }
 
-async function send<T>(body: object, timeoutMs: number): Promise<T> {
+/** Texte normalisé : deux recherches identiques donnent la même adresse, donc la même réponse en cache. */
+const clean = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
+
+/** Recherches et cotes partent en GET pour profiter du cache du serveur ; les photos en POST. */
+function toGetUrl(body: Record<string, any>) {
+  const p = new URLSearchParams({ action: body.action });
+  if (body.action === 'search') {
+    p.set('q', clean(body.query));
+    const x = (body.exclude as string[]).map(clean).sort().join('|');
+    if (x) p.set('x', x);
+  } else if (body.action === 'price') {
+    p.set('name', clean(body.name));
+    p.set('vintage', String(body.vintage).trim());
+  } else return null;
+  return `${SERVER}?${p.toString()}`;
+}
+
+async function send<T>(body: Record<string, any>, timeoutMs: number): Promise<T> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   let res: Response;
+  const getUrl = toGetUrl(body);
   try {
-    res = await fetch(SERVER, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-sommelier-app': '1' },
-      body: JSON.stringify(body),
-      signal: ctrl.signal,
-    });
+    res = getUrl
+      ? await fetch(getUrl, { headers: { 'x-sommelier-app': '1' }, signal: ctrl.signal })
+      : await fetch(SERVER, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-sommelier-app': '1' },
+          body: JSON.stringify(body),
+          signal: ctrl.signal,
+        });
   } catch {
     throw new ApiError('NETWORK');
   } finally {

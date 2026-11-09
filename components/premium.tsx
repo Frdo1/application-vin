@@ -2,9 +2,9 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { openPrivacyOptions } from '@/lib/ads';
+import { openPrivacyOptions, showRewarded } from '@/lib/ads';
 import { buyPremium, isPremium, onPremiumChange, premiumPrice, restorePremium } from '@/lib/premium';
-import { FREE_PER_DAY, onPaywall, onQuotaChange, remaining } from '@/lib/quota';
+import { addRewardSearches, FREE_PER_DAY, onPaywall, onQuotaChange, remaining, REWARD_SEARCHES, rewardsLeft } from '@/lib/quota';
 import { C, F } from '@/lib/theme';
 
 /** État Premium + quota restant, mis à jour en direct. */
@@ -19,7 +19,7 @@ export function usePremium() {
       b();
     };
   }, []);
-  return { premium: isPremium(), price: premiumPrice(), left: remaining(), available: Platform.OS === 'android' };
+  return { premium: isPremium(), price: premiumPrice(), left: remaining(), bonus: rewardsLeft(), available: Platform.OS === 'android' };
 }
 
 const PERKS = [
@@ -44,7 +44,8 @@ export function PremiumBadge({ onPress }: { onPress: () => void }) {
 
 /** Écran Premium : s'ouvre depuis la pastille, ou tout seul quand le quota gratuit est épuisé. */
 export function PremiumModal() {
-  const { premium, price, left } = usePremium();
+  const { premium, price, left, bonus } = usePremium();
+  const [watching, setWatching] = useState(false);
   const [visible, setVisible] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
@@ -62,6 +63,17 @@ export function PremiumModal() {
     const r = await buyPremium();
     setBusy(false);
     if (r === 'error') setMsg('Abonnement impossible pour le moment. Vérifiez votre connexion et réessayez.');
+  };
+
+  const watchAd = async () => {
+    setWatching(true);
+    setMsg('');
+    const ok = await showRewarded();
+    setWatching(false);
+    if (ok) {
+      await addRewardSearches();
+      setVisible(false);
+    } else setMsg('Aucune vidéo disponible pour le moment. Réessayez dans quelques minutes.');
   };
 
   const restore = async () => {
@@ -108,6 +120,18 @@ export function PremiumModal() {
                 )}
               </Pressable>
               <Text style={st.small}>Sans engagement, résiliable à tout moment depuis Google Play.</Text>
+              {bonus > 0 && (
+                <Pressable style={[st.reward, watching && { opacity: 0.6 }]} onPress={watchAd} disabled={watching || busy}>
+                  {watching ? (
+                    <ActivityIndicator color={C.wine} />
+                  ) : (
+                    <>
+                      <MaterialIcons name="smart-display" size={20} color={C.wine} />
+                      <Text style={st.rewardText}>Regarder une pub : +{REWARD_SEARCHES} recherches</Text>
+                    </>
+                  )}
+                </Pressable>
+              )}
             </>
           )}
 
@@ -160,6 +184,18 @@ const st = StyleSheet.create({
   text: { fontFamily: F.sans, fontSize: 16, lineHeight: 23, color: C.text, textAlign: 'center', marginBottom: 16 },
   buy: { backgroundColor: C.wine, borderRadius: 16, paddingVertical: 16, alignItems: 'center' },
   buyText: { color: C.white, fontFamily: F.sansBold, fontSize: 18 },
+  reward: {
+    marginTop: 14,
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: C.wine,
+    borderRadius: 16,
+    paddingVertical: 13,
+  },
+  rewardText: { color: C.wine, fontFamily: F.sansBold, fontSize: 16 },
   small: { fontFamily: F.sans, fontSize: 13, color: C.muted, textAlign: 'center', marginTop: 8 },
   error: { fontFamily: F.sansBold, fontSize: 15, color: '#B91C1C', textAlign: 'center', marginTop: 12 },
   link: { fontFamily: F.sansBold, fontSize: 15, color: C.wine, textDecorationLine: 'underline' },

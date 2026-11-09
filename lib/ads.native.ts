@@ -1,4 +1,4 @@
-import mobileAds, { AdEventType, AdsConsent, InterstitialAd, TestIds } from 'react-native-google-mobile-ads';
+import mobileAds, { AdEventType, AdsConsent, InterstitialAd, RewardedAd, RewardedAdEventType, TestIds } from 'react-native-google-mobile-ads';
 
 import { initPremium, isPremium, onPremiumChange } from './premium';
 
@@ -7,6 +7,7 @@ const TEST = __DEV__ || process.env.EXPO_PUBLIC_ADS_TEST === '1';
 
 export const BANNER_ID = TEST ? TestIds.ADAPTIVE_BANNER : 'ca-app-pub-8906338773802694/5411757040';
 const INTERSTITIAL_ID = TEST ? TestIds.INTERSTITIAL : 'ca-app-pub-8906338773802694/4996824077';
+const REWARDED_ID = TEST ? TestIds.REWARDED : 'ca-app-pub-8906338773802694/9451074408';
 
 // 1 interstitiel toutes les 3 réponses de l'IA, et au moins 3 minutes d'écart.
 const EVERY_N = 3;
@@ -83,3 +84,30 @@ export async function openPrivacyOptions() {
 
 // Abonnement Premium : la bannière disparaît tout de suite.
 onPremiumChange(() => listeners.forEach((cb) => cb(adsReady())));
+
+/**
+ * Pub récompensée : renvoie true si l'utilisateur l'a regardée jusqu'au bout.
+ * Chargée à la demande (une fois que l'utilisateur la réclame).
+ */
+export function showRewarded(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (!canRequest) return resolve(false);
+    const ad = RewardedAd.createForAdRequest(REWARDED_ID);
+    let earned = false;
+    let done = false;
+    const finish = (v: boolean) => {
+      if (done) return;
+      done = true;
+      offs.forEach((off) => off());
+      resolve(v);
+    };
+    const offs = [
+      ad.addAdEventListener(RewardedAdEventType.LOADED, () => ad.show().catch(() => finish(false))),
+      ad.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => (earned = true)),
+      ad.addAdEventListener(AdEventType.CLOSED, () => finish(earned)),
+      ad.addAdEventListener(AdEventType.ERROR, () => finish(false)),
+    ];
+    setTimeout(() => finish(earned), 60_000);
+    ad.load();
+  });
+}

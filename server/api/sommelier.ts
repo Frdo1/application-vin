@@ -74,19 +74,35 @@ function ai() {
   return (client ??= new GoogleGenAI({ apiKey: key }));
 }
 
-type Req = { method?: string; body?: any; headers: Record<string, string | string[] | undefined> };
+type Req = { method?: string; body?: any; query?: Record<string, string | string[] | undefined>; headers: Record<string, string | string[] | undefined> };
 type Res = { status: (n: number) => Res; json: (b: unknown) => void; setHeader: (k: string, v: string) => void };
+
+// Cache CDN de Vercel : une recherche ou une cote déjà demandée est resservie
+// sans appeler Gemini (GET uniquement ; l'analyse de photo reste en POST, non cachée).
+const CACHE_SEARCH = 'public, s-maxage=2592000, stale-while-revalidate=86400'; // 30 jours
+const CACHE_PRICE = 'public, s-maxage=604800, stale-while-revalidate=86400'; // 7 jours
+const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) || '';
 
 export default async function handler(req: Req, res: Res) {
   res.setHeader('Cache-Control', 'no-store');
-  if (req.method === 'GET') return res.status(200).json({ ok: true, model: MODEL, configured: !!process.env.GEMINI_API_KEY });
-  if (req.method !== 'POST') return res.status(405).json({ error: 'METHOD' });
+  let body: any;
+  if (req.method === 'GET') {
+    const q = req.query || {};
+    const action = one(q.action);
+    if (!action) return res.status(200).json({ ok: true, model: MODEL, configured: !!process.env.GEMINI_API_KEY });
+    if (action !== 'search' && action !== 'price') return res.status(405).json({ error: 'METHOD' });
+    body = { action, query: one(q.q), exclude: one(q.x) ? one(q.x).split('|') : [], name: one(q.name), vintage: one(q.vintage) };
+  } else if (req.method === 'POST') {
+    body = typeof req.body === 'string' ? safeParse(req.body) : req.body || {};
+  } else {
+    return res.status(405).json({ error: 'METHOD' });
+  }
   if (req.headers['x-sommelier-app'] !== '1') return res.status(403).json({ error: 'FORBIDDEN' });
 
   const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'inconnu';
   if (tooMany(ip)) return res.status(429).json({ error: 'RATE_LIMIT' });
 
-  const body = typeof req.body === 'string' ? safeParse(req.body) : req.body || {};
+  const cache = req.method === 'GET';
   try {
     switch (body.action) {
       case 'search': {
@@ -97,7 +113,9 @@ export default async function handler(req: Req, res: Res) {
           contents: searchPrompt(query, exclude),
           config: { responseMimeType: 'application/json', temperature: 0.6 },
         });
-        return res.status(200).json({ wines: cleanWines(extractJSON(r.text || '')) });
+        const wines = cleanWines(extractJSON(r.text || ''));
+        if (cache && wines.length) res.setHeader('Cache-Control', CACHE_SEARCH);
+        return res.status(200).json({ wines });
       }
       case 'label': {
         const image = String(body.image || '').replace(/^data:image\/\w+;base64,/, '');
@@ -120,6 +138,8 @@ export default async function handler(req: Req, res: Res) {
           config: { tools: [{ googleSearch: {} }], temperature: 0 },
         });
         const data = extractJSON(r.text || '') as { price?: string; source?: string } | null;
+        // On ne garde en cache que les cotes vérifiées par la recherche Google.
+        if (cache && grounded && data?.price) res.setHeader('Cache-Control', CACHE_PRICE);
         return res.status(200).json({
           price: String(data?.price || '').slice(0, 40),
           source: String(data?.source || '').slice(0, 60),
