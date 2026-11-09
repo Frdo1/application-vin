@@ -8,28 +8,53 @@ import { C, F, S } from '@/lib/theme';
 import type { Wine, WineType } from '@/lib/types';
 import { DrinkStatus, STATUS_COLOR, STATUS_LABEL, TYPE_COLORS } from '@/lib/wine';
 
-/** Bouteille dessinée, utilisée quand il n'y a pas de photo. */
-export function Bottle({ type, height = 200 }: { type: WineType; height?: number }) {
+/** Bouteille dessinée ; avec `label`, la photo de l'étiquette est collée dessus. */
+export function Bottle({ type, height = 200, label }: { type: WineType; height?: number; label?: string }) {
   const glass = type === 'Rouge' ? '#290e0e' : '#DDE1E5';
-  return (
-    <Svg width={(height * 60) / 160} height={height} viewBox="0 0 60 160">
+  const width = (height * 60) / 160;
+  const svg = (
+    <Svg width={width} height={height} viewBox="0 0 60 160">
       <Path d="M20 0H40V30C40 30 55 40 55 70V150C55 155.5 50.5 160 45 160H15C9.5 160 5 155.5 5 150V70C5 40 20 30 20 30V0Z" fill={glass} />
       <Path d="M8 80 H52 V150 C52 153 50 156 46 156 H14 C10 156 8 153 8 150Z" fill={TYPE_COLORS[type]?.liquid ?? '#720e1e'} opacity={0.55} />
-      <Rect x={10} y={72} width={40} height={42} rx={2} fill="#FFFEFC" />
-      <Rect x={14} y={78} width={32} height={1} fill="#1C1917" opacity={0.25} />
-      <Rect x={14} y={83} width={24} height={1} fill="#1C1917" opacity={0.25} />
-      <Rect x={14} y={92} width={32} height={3} fill="#881337" opacity={0.8} />
-      <Rect x={14} y={99} width={20} height={1.5} fill="#1C1917" opacity={0.5} />
+      {!label && (
+        <>
+          <Rect x={10} y={72} width={40} height={42} rx={2} fill="#FFFEFC" />
+          <Rect x={14} y={78} width={32} height={1} fill="#1C1917" opacity={0.25} />
+          <Rect x={14} y={83} width={24} height={1} fill="#1C1917" opacity={0.25} />
+          <Rect x={14} y={92} width={32} height={3} fill="#881337" opacity={0.8} />
+          <Rect x={14} y={99} width={20} height={1.5} fill="#1C1917" opacity={0.5} />
+        </>
+      )}
       <Rect x={19} y={0} width={22} height={12} fill="#7F1D1D" />
     </Svg>
+  );
+  if (!label) return svg;
+  // Étiquette : zone du corps de la bouteille (x 8→52, y 64→132 sur 60×160)
+  const u = width / 60;
+  return (
+    <View style={{ width, height }}>
+      {svg}
+      <View style={[st.label, { left: 8 * u, top: 64 * u, width: 44 * u, height: 68 * u, borderRadius: 2 * u }]}>
+        <Image source={{ uri: label }} style={StyleSheet.absoluteFill} contentFit="cover" accessibilityLabel="Étiquette du vin" />
+        {/* léger reflet pour l'effet verre bombé */}
+        <View style={[st.shine, { width: 10 * u }]} />
+      </View>
+    </View>
   );
 }
 
 /** Photo de l'étiquette si on l'a, sinon vignette web, sinon bouteille dessinée. */
 export function WineImage({ wine, height = 220 }: { wine: Wine; height?: number }) {
   const [failed, setFailed] = useState(false);
+  // Étiquette photographiée : collée sur la bouteille dessinée.
+  if (wine.photoUri)
+    return (
+      <View style={{ height, alignItems: 'center', justifyContent: 'center' }}>
+        <Bottle type={wine.type} label={wine.photoUri} height={height * 0.92} />
+      </View>
+    );
   const thumb = `https://tse2.mm.bing.net/th?q=${encodeURIComponent(`${wine.name} ${wine.vintage} bouteille vin`)}&w=400&h=600&c=7&rs=1&p=0`;
-  const uri = wine.photoUri || thumb;
+  const uri = thumb;
   if (failed) return <Bottle type={wine.type} height={height * 0.9} />;
   return (
     <Image
@@ -171,6 +196,8 @@ export function Pill({ label, active, onPress }: { label: string; active?: boole
 }
 
 const st = StyleSheet.create({
+  label: { position: 'absolute', overflow: 'hidden', backgroundColor: '#FFFEFC' },
+  shine: { position: 'absolute', top: 0, bottom: 0, left: '12%', backgroundColor: 'rgba(255,255,255,0.18)' },
   badge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' },
   badgeText: { fontFamily: F.sansBold, fontSize: 11, letterSpacing: 0.8, textTransform: 'uppercase' },
   tick: { position: 'absolute', fontFamily: F.sansBold, fontSize: 11, color: C.wine, width: 44, textAlign: 'center' },

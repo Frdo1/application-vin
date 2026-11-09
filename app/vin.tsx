@@ -1,17 +1,18 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AgingGraph, Chips, Heart, SectionTitle, StatusBadge, TypeBadge, WineImage } from '@/components/wine-ui';
 import { errorMessage, vintagePrice } from '@/lib/api';
-import { useStore } from '@/lib/store';
+import { pickLabelPhoto } from '@/lib/scan';
+import { keepPhoto, useStore } from '@/lib/store';
 import { C, F, S } from '@/lib/theme';
 import { drinkStatus, fmtDate, shopLinks } from '@/lib/wine';
 
 export default function VinScreen() {
-  const { current: wine, findInCellar, addToCellar, removeFromCellar } = useStore();
+  const { current: wine, findInCellar, addToCellar, removeFromCellar, updateItem, setCurrent } = useStore();
   const [vintage, setVintage] = useState(wine?.vintage ?? '');
   const [price, setPrice] = useState<{ value: string; source: string; links: { title: string; url: string }[]; verified: boolean } | null>(null);
   const [priceLoading, setPriceLoading] = useState(false);
@@ -55,6 +56,29 @@ export default function VinScreen() {
     }
   };
 
+  // Photo de l'étiquette collée sur la bouteille (sans IA, donc gratuite).
+  const setLabel = () => {
+    const take = async (camera: boolean) => {
+      try {
+        const shot = await pickLabelPhoto(camera);
+        if (!shot) return;
+        const photoUri = await keepPhoto(shot);
+        if (item) updateItem(item.key, { wine: { ...item.wine, photoUri } });
+        setCurrent({ ...wine, vintage: vintage || wine.vintage, photoUri });
+      } catch (e: any) {
+        Alert.alert(
+          e?.message === 'PERMISSION' ? 'Accès à l’appareil photo refusé' : 'Photo impossible',
+          e?.message === 'PERMISSION' ? 'Vous pouvez l’autoriser dans les réglages Android, ou choisir une photo.' : 'Réessayez.',
+        );
+      }
+    };
+    Alert.alert('Étiquette de la bouteille', 'Cadrez l’étiquette : elle sera collée sur la bouteille.', [
+      { text: 'Prendre une photo', onPress: () => take(true) },
+      { text: 'Choisir une photo', onPress: () => take(false) },
+      { text: 'Annuler', style: 'cancel' },
+    ]);
+  };
+
   const toggleCellar = () => {
     if (inCellar && item) removeFromCellar(item.key);
     else addToCellar(wine, validVintage ? vintage : '');
@@ -71,6 +95,9 @@ export default function VinScreen() {
           <View style={st.actions}>
             <Pressable style={st.round} onPress={toggleCellar} accessibilityLabel={inCellar ? 'Retirer de ma cave' : 'Ajouter à ma cave'}>
               <Heart filled={inCellar} size={24} />
+            </Pressable>
+            <Pressable style={st.round} onPress={setLabel} accessibilityLabel="Photographier l’étiquette">
+              <MaterialIcons name="add-a-photo" size={22} color={C.text} />
             </Pressable>
             <Pressable style={st.round} onPress={() => router.back()} accessibilityLabel="Fermer">
               <MaterialIcons name="close" size={24} color={C.text} />

@@ -17,6 +17,18 @@ export async function pickLabel(camera: boolean): Promise<{ uri: string; base64:
   return shrink(res.assets[0].uri, res.assets[0].width);
 }
 
+/** Photo d'étiquette à coller sur la bouteille : l'utilisateur la recadre (format bouteille), sans analyse IA. */
+export async function pickLabelPhoto(camera: boolean): Promise<string | null> {
+  if (camera) {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) throw new Error('PERMISSION');
+  }
+  const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 1, allowsEditing: true, aspect: [2, 3] };
+  const res = camera ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
+  if (res.canceled || !res.assets?.[0]) return null;
+  return (await shrink(res.assets[0].uri, res.assets[0].width)).uri;
+}
+
 export async function shrink(uri: string, width?: number) {
   const out = await manipulateAsync(uri, width && width > 1280 ? [{ resize: { width: 1280 } }] : [], {
     compress: 0.7,
