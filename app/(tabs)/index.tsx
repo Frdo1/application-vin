@@ -5,7 +5,9 @@ import { ActivityIndicator, FlatList, Keyboard, Pressable, StyleSheet, Text, Tex
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { WineCard } from '@/components/wine-card';
+import { PremiumBadge } from '@/components/premium';
 import { Pill } from '@/components/wine-ui';
+import { openPaywall } from '@/lib/quota';
 import { errorMessage, searchWines } from '@/lib/api';
 import { useStore } from '@/lib/store';
 import { C, F, S } from '@/lib/theme';
@@ -81,6 +83,7 @@ export default function Recherche() {
           Le Sommelier <Text style={{ color: C.wine }}>IA</Text>
         </Text>
         <Text style={st.subtitle}>Découvrez les trésors du vignoble français. Décrivez vos envies ou scannez une étiquette.</Text>
+        <PremiumBadge onPress={openPaywall} />
 
         <View style={st.searchRow}>
           <TextInput

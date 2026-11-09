@@ -3,7 +3,7 @@
     "name": "Le Sommelier IA",
     "slug": "sommelier-ia",
     "owner": "frdo1",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "sommelier",
@@ -51,7 +51,15 @@
         }
       ],
       "@react-native-community/datetimepicker",
-      "expo-font"
+      "expo-font",
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-8906338773802694~6278116158",
+          "iosAppId": "ca-app-pub-3940256099942544~1458002511"
+        }
+      ],
+      "expo-iap"
     ],
     "extra": {
       "serverUrl": "https://application-vin.vercel.app/api/sommelier",

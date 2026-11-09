@@ -1,7 +1,9 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { BottomTabBar } from '@react-navigation/bottom-tabs';
 import { Tabs } from 'expo-router';
 import React from 'react';
 
+import { AdBanner } from '@/components/ad-banner';
 import { useStore } from '@/lib/store';
 import { C, F } from '@/lib/theme';
 
@@ -10,6 +12,12 @@ export default function TabLayout() {
   const bottles = cellar.reduce((n, c) => n + c.quantity, 0);
   return (
     <Tabs
+      tabBar={(props) => (
+        <>
+          <AdBanner />
+          <BottomTabBar {...props} />
+        </>
+      )}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: C.wine,

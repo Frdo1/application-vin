@@ -11,6 +11,9 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { PremiumModal } from '@/components/premium';
+import { initAds } from '@/lib/ads';
+import { initQuota } from '@/lib/quota';
 import { StoreProvider, useStore } from '@/lib/store';
 import { C } from '@/lib/theme';
 
@@ -28,7 +31,10 @@ function Root() {
   });
   const ok = ready && fonts;
   useEffect(() => {
-    if (ok) SplashScreen.hideAsync().catch(() => {});
+    if (!ok) return;
+    SplashScreen.hideAsync().catch(() => {});
+    initQuota();
+    initAds();
   }, [ok]);
   if (!ok) return null;
   return (
@@ -38,6 +44,7 @@ function Root() {
         <Stack.Screen name="vin" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="degustation" options={{ animation: 'slide_from_right' }} />
       </Stack>
+      <PremiumModal />
       <StatusBar style="dark" />
     </>
   );

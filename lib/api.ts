@@ -1,5 +1,7 @@
 import Constants from 'expo-constants';
 
+import { maybeShowInterstitial } from './ads';
+import { refundQuota, takeQuota } from './quota';
 import type { Wine } from './types';
 
 const SERVER: string =
@@ -16,6 +18,8 @@ export class ApiError extends Error {
 export function errorMessage(e: unknown): string {
   const code = e instanceof ApiError ? e.code : 'NETWORK';
   switch (code) {
+    case 'FREE_LIMIT':
+      return 'Vos recherches gratuites du jour sont épuisées. Revenez demain ou passez en Premium.';
     case 'NETWORK':
       return 'Pas de connexion au sommelier. Vérifiez votre réseau.';
     case 'MISSING_API_KEY':
@@ -34,6 +38,19 @@ export function errorMessage(e: unknown): string {
 }
 
 async function call<T>(body: object, timeoutMs = 60_000): Promise<T> {
+  // Quota gratuit : une demande réservée avant l'appel, rendue si l'appel échoue.
+  if (!(await takeQuota())) throw new ApiError('FREE_LIMIT');
+  try {
+    const data = await send<T>(body, timeoutMs);
+    setTimeout(maybeShowInterstitial, 1200);
+    return data;
+  } catch (e) {
+    await refundQuota();
+    throw e;
+  }
+}
+
+async function send<T>(body: object, timeoutMs: number): Promise<T> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   let res: Response;

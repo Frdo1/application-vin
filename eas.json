@@ -9,7 +9,10 @@
       "android": {
         "buildType": "apk"
       },
-      "node": "22.23.4"
+      "node": "22.23.4",
+      "env": {
+        "EXPO_PUBLIC_ADS_TEST": "1"
+      }
     },
     "production": {
       "autoIncrement": true,

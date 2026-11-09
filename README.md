@@ -21,6 +21,14 @@ scan d'étiquette, fiche détaillée, cave personnelle et fiches de dégustation
 - Lecture fiable des réponses de l'IA (la v1 échouait sur certaines réponses).
 - Modèle `gemini-3.8-flash` (modifiable avec la variable `GEMINI_MODEL` sur Vercel).
 
+## Monétisation (v2.1)
+
+- **Gratuit** : 5 demandes à l'IA par jour (recherche, scan d'étiquette, cote), bannière + interstitiel AdMob.
+- **Premium** : abonnement Google Play `premium` (forfait de base mensuel) → illimité et sans pub.
+- Consentement RGPD (Google UMP), politique de confidentialité : `server/public/confidentialite.html`
+  → https://application-vin.vercel.app/confidentialite.html
+- Builds `preview` = pubs de test ; `production` = vraies pubs.
+
 ## Déploiement
 
 1. Vercel : projet `application-vin`, **Root Directory = `server`**, variable `GEMINI_API_KEY`.
