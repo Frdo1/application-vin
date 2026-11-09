@@ -46,6 +46,27 @@ export type CellarItem = {
   /** Prix payé par bouteille, en euros, saisi par l'utilisateur */
   pricePaid?: number;
   tasting?: Tasting;
+  /** Emplacements des bouteilles dans les casiers (une entrée par bouteille rangée) */
+  slots?: Slot[];
+};
+
+/** Case d'un casier : rangée et colonne comptées à partir de 0 */
+export type Slot = { rack: string; row: number; col: number };
+
+/** Casier ou meuble de la cave, en grille */
+export type Rack = { id: string; name: string; rows: number; cols: number };
+
+/** Mouvement de cave : bouteilles entrées (+) ou sorties (−) */
+export type Move = {
+  id: string;
+  date: number;
+  key: string;
+  name: string;
+  vintage: string;
+  /** Nombre de bouteilles : positif = entrée, négatif = sortie */
+  qty: number;
+  /** Occasion ou commentaire saisi à la sortie */
+  note?: string;
 };
 
 export type ScanItem = { id: string; date: number; uri: string; wineName?: string };

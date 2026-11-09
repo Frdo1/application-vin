@@ -13,11 +13,26 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { PremiumModal } from '@/components/premium';
 import { initAds } from '@/lib/ads';
+import { scheduleAlerts } from '@/lib/alerts';
+import { isPremium } from '@/lib/premium';
 import { initQuota } from '@/lib/quota';
 import { StoreProvider, useStore } from '@/lib/store';
 import { C } from '@/lib/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+/** Reprogramme les alertes « à boire » quand la cave change (abonnés Premium). */
+function AlertsSync() {
+  const { cellar, ready } = useStore();
+  useEffect(() => {
+    if (!ready) return;
+    const t = setTimeout(() => {
+      if (isPremium()) scheduleAlerts(cellar).catch(() => {});
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [cellar, ready]);
+  return null;
+}
 
 function Root() {
   const { ready } = useStore();
@@ -44,7 +59,11 @@ function Root() {
         <Stack.Screen name="vin" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="degustation" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="appellations" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="cave-plan" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="cave-journal" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="cave-outils" options={{ animation: 'slide_from_right' }} />
       </Stack>
+      <AlertsSync />
       <PremiumModal />
       <StatusBar style="dark" />
     </>

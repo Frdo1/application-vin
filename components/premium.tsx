@@ -25,6 +25,7 @@ export function usePremium() {
 const PERKS = [
   'Recherches et scans d’étiquettes illimités',
   'Cotes des millésimes illimitées',
+  'Organisateur de cave : casiers, journal, alertes « à boire », sauvegarde',
   'Aucune publicité',
 ];
 

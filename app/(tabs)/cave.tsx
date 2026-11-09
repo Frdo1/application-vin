@@ -4,8 +4,10 @@ import React, { useMemo, useState } from 'react';
 import { Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { usePremium } from '@/components/premium';
 import { WineCard } from '@/components/wine-card';
 import { Pill } from '@/components/wine-ui';
+import { openPaywall } from '@/lib/quota';
 import { useStore } from '@/lib/store';
 import { C, F, S } from '@/lib/theme';
 import type { CellarItem } from '@/lib/types';
@@ -24,6 +26,9 @@ type Sort = 'recent' | 'drink' | 'value';
 
 export default function Cave() {
   const { cellar, setQuantity, removeFromCellar, setCurrent, updateItem } = useStore();
+  const { premium } = usePremium();
+  // Outils avancés réservés aux abonnés : sinon on présente le Premium.
+  const go = (path: '/cave-plan' | '/cave-journal' | '/cave-outils') => (premium ? router.push(path) : openPaywall());
   const [filter, setFilter] = useState<Filter>('all');
   const [type, setType] = useState<string>('');
   const [text, setText] = useState('');
@@ -66,6 +71,7 @@ export default function Cave() {
             ? Alert.prompt('Prix payé par bouteille (€)', undefined, (v) => updateItem(c.key, { pricePaid: parseFloat(v) || undefined }))
             : setPriceFor(c),
       },
+      { text: 'Ranger dans un casier', onPress: () => go('/cave-plan') },
       { text: 'Supprimer de la cave', style: 'destructive', onPress: () => removeFromCellar(c.key) },
       { text: 'Annuler', style: 'cancel' },
     ]);
@@ -108,6 +114,23 @@ export default function Cave() {
               <Text style={S.overline}>Valeur estimée</Text>
               <Text style={st.statValue}>{value.toLocaleString('fr-FR')} €</Text>
             </View>
+            <View style={st.tools}>
+              {(
+                [
+                  ['/cave-plan', 'grid-view', 'Plan de cave'],
+                  ['/cave-journal', 'insights', 'Journal & stats'],
+                  ['/cave-outils', 'notifications-active', 'Alertes & sauvegarde'],
+                ] as const
+              ).map(([path, icon, label]) => (
+                <Pressable key={path} style={st.tool} onPress={() => go(path)}>
+                  <MaterialIcons name={icon} size={22} color={C.wine} />
+                  <Text style={st.toolText} numberOfLines={2}>
+                    {label}
+                  </Text>
+                  {!premium && <MaterialIcons name="workspace-premium" size={14} color={C.goldText} style={st.lock} />}
+                </Pressable>
+              ))}
+            </View>
             <TextInput
               style={[S.input, { marginTop: 14, paddingVertical: 10 }]}
               value={text}
@@ -136,7 +159,7 @@ export default function Cave() {
                 </Pressable>
               ))}
             </View>
-            <Text style={[S.muted, { fontSize: 12, marginTop: 8 }]}>Appui long sur un vin : prix payé ou suppression.</Text>
+            <Text style={[S.muted, { fontSize: 12, marginTop: 8 }]}>Appui long sur un vin : prix payé, rangement ou suppression.</Text>
           </View>
         }
         ListEmptyComponent={<Text style={[S.muted, { textAlign: 'center', padding: 24 }]}>Aucun vin pour ce filtre.</Text>}
@@ -198,6 +221,20 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
 
 const st = StyleSheet.create({
   stats: { flexDirection: 'row', gap: 10 },
+  tools: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  tool: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 12,
+    paddingHorizontal: 6,
+    borderRadius: 14,
+    backgroundColor: C.wineSoft,
+    borderWidth: 1,
+    borderColor: '#FBD5D5',
+  },
+  toolText: { fontFamily: F.sansBold, fontSize: 12, color: C.wine, textAlign: 'center' },
+  lock: { position: 'absolute', top: 6, right: 6 },
   stat: { backgroundColor: C.white, borderRadius: 14, borderWidth: 1, borderColor: '#F0EEEC', padding: 12, alignItems: 'center' },
   statValue: { fontFamily: F.serif, fontSize: 24, color: C.text, marginTop: 2 },
   overlay: {
