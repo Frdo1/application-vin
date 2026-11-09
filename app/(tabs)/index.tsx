@@ -138,11 +138,15 @@ export default function Recherche() {
         <View style={st.scanRow}>
           <Pressable style={st.scanBtn} onPress={() => scan(true)}>
             <MaterialIcons name="photo-camera" size={18} color={C.wine} />
-            <Text style={st.scanText}>Photographier une étiquette</Text>
+            <Text style={st.scanText} numberOfLines={1} adjustsFontSizeToFit>
+              Prendre en photo
+            </Text>
           </Pressable>
           <Pressable style={st.scanBtn} onPress={() => scan(false)}>
             <MaterialIcons name="photo-library" size={18} color={C.wine} />
-            <Text style={st.scanText}>Importer</Text>
+            <Text style={st.scanText} numberOfLines={1} adjustsFontSizeToFit>
+              Importer une photo
+            </Text>
           </Pressable>
         </View>
 
@@ -234,12 +238,13 @@ const st = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingVertical: 10,
+    paddingHorizontal: 8,
     borderRadius: 12,
     backgroundColor: C.wineSoft,
     borderWidth: 1,
     borderColor: '#FBD5D5',
   },
-  scanText: { fontFamily: F.sansBold, fontSize: 13, color: C.wine },
+  scanText: { flexShrink: 1, fontFamily: F.sansBold, fontSize: 13, color: C.wine },
   browse: {
     flexDirection: 'row',
     alignItems: 'center',
