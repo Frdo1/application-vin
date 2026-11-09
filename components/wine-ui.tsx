@@ -2,42 +2,57 @@ import Slider from '@react-native-community/slider';
 import { Image } from 'expo-image';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import Svg, { Defs, Line, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import Svg, { ClipPath, Defs, Line, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
+
+import { BOTTLES, BottleShape, bottleShape, glassColor } from '@/lib/bottles';
 
 import { C, F, S } from '@/lib/theme';
 import type { Wine, WineType } from '@/lib/types';
 import { DrinkStatus, STATUS_COLOR, STATUS_LABEL, TYPE_COLORS } from '@/lib/wine';
 
-/** Bouteille dessinée ; avec `label`, la photo de l'étiquette est collée dessus. */
-export function Bottle({ type, height = 200, label }: { type: WineType; height?: number; label?: string }) {
-  const glass = type === 'Rouge' ? '#290e0e' : '#DDE1E5';
+/** Bouteille dessinée, à la forme de sa région ; avec `label`, la photo de l'étiquette est collée dessus. */
+export function Bottle({ type, height = 200, label, shape = 'bordelaise' }: { type: WineType; height?: number; label?: string; shape?: BottleShape }) {
+  const b = BOTTLES[shape];
   const width = (height * 60) / 160;
+  const clip = `clip-${shape}`;
+  const L = b.label;
   const svg = (
     <Svg width={width} height={height} viewBox="0 0 60 160">
-      <Path d="M20 0H40V30C40 30 55 40 55 70V150C55 155.5 50.5 160 45 160H15C9.5 160 5 155.5 5 150V70C5 40 20 30 20 30V0Z" fill={glass} />
-      <Path d="M8 80 H52 V150 C52 153 50 156 46 156 H14 C10 156 8 153 8 150Z" fill={TYPE_COLORS[type]?.liquid ?? '#720e1e'} opacity={0.55} />
+      <Defs>
+        <ClipPath id={clip}>
+          <Path d={b.path} />
+        </ClipPath>
+      </Defs>
+      <Path d={b.path} fill={glassColor(shape, type)} />
+      <Rect x={0} y={b.liquidTop} width={60} height={160 - b.liquidTop} fill={TYPE_COLORS[type]?.liquid ?? '#720e1e'} opacity={0.55} clipPath={`url(#${clip})`} />
       {!label && (
         <>
-          <Rect x={10} y={72} width={40} height={42} rx={2} fill="#FFFEFC" />
-          <Rect x={14} y={78} width={32} height={1} fill="#1C1917" opacity={0.25} />
-          <Rect x={14} y={83} width={24} height={1} fill="#1C1917" opacity={0.25} />
-          <Rect x={14} y={92} width={32} height={3} fill="#881337" opacity={0.8} />
-          <Rect x={14} y={99} width={20} height={1.5} fill="#1C1917" opacity={0.5} />
+          <Rect x={L.x} y={L.y} width={L.w} height={L.h} rx={2} fill="#FFFEFC" />
+          <Rect x={L.x + 4} y={L.y + 6} width={L.w - 8} height={1} fill="#1C1917" opacity={0.25} />
+          <Rect x={L.x + 4} y={L.y + 11} width={(L.w - 8) * 0.7} height={1} fill="#1C1917" opacity={0.25} />
+          <Rect x={L.x + 4} y={L.y + L.h * 0.48} width={L.w - 8} height={3} fill="#881337" opacity={0.8} />
+          <Rect x={L.x + 4} y={L.y + L.h * 0.48 + 7} width={(L.w - 8) * 0.6} height={1.5} fill="#1C1917" opacity={0.5} />
         </>
       )}
-      <Rect x={19} y={0} width={22} height={12} fill="#7F1D1D" />
+      <Rect
+        x={b.capsule.x}
+        y={b.capsule.y}
+        width={b.capsule.w}
+        height={b.capsule.h}
+        rx={1}
+        fill={shape === 'champenoise' ? '#C9A646' : '#7F1D1D'}
+      />
     </Svg>
   );
   if (!label) return svg;
-  // Étiquette : zone du corps de la bouteille (x 8→52, y 64→132 sur 60×160)
   const u = width / 60;
   return (
     <View style={{ width, height }}>
       {svg}
-      <View style={[st.label, { left: 8 * u, top: 64 * u, width: 44 * u, height: 68 * u, borderRadius: 2 * u }]}>
+      <View style={[st.label, { left: L.x * u, top: L.y * u, width: L.w * u, height: L.h * u, borderRadius: 2 * u }]}>
         <Image source={{ uri: label }} style={StyleSheet.absoluteFill} contentFit="cover" accessibilityLabel="Étiquette du vin" />
         {/* léger reflet pour l'effet verre bombé */}
-        <View style={[st.shine, { width: 10 * u }]} />
+        <View style={[st.shine, { width: 0.22 * L.w * u }]} />
       </View>
     </View>
   );
@@ -50,12 +65,12 @@ export function WineImage({ wine, height = 220 }: { wine: Wine; height?: number 
   if (wine.photoUri)
     return (
       <View style={{ height, alignItems: 'center', justifyContent: 'center' }}>
-        <Bottle type={wine.type} label={wine.photoUri} height={height * 0.92} />
+        <Bottle type={wine.type} label={wine.photoUri} shape={bottleShape(wine)} height={height * 0.92} />
       </View>
     );
   const thumb = `https://tse2.mm.bing.net/th?q=${encodeURIComponent(`${wine.name} ${wine.vintage} bouteille vin`)}&w=400&h=600&c=7&rs=1&p=0`;
   const uri = thumb;
-  if (failed) return <Bottle type={wine.type} height={height * 0.9} />;
+  if (failed) return <Bottle type={wine.type} shape={bottleShape(wine)} height={height * 0.9} />;
   return (
     <Image
       source={{ uri }}
