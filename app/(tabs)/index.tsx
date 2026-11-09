@@ -1,12 +1,13 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { WineCard } from '@/components/wine-card';
 import { PremiumBadge } from '@/components/premium';
 import { Pill } from '@/components/wine-ui';
+import { APPELLATIONS } from '@/lib/appellations';
 import { openPaywall } from '@/lib/quota';
 import { errorMessage, searchWines } from '@/lib/api';
 import { useStore } from '@/lib/store';
@@ -14,6 +15,9 @@ import { C, F, S } from '@/lib/theme';
 import type { Wine } from '@/lib/types';
 import { useScan } from '@/lib/useScan';
 import { norm, POPULAR_WINES } from '@/lib/wine';
+
+/** Suggestions de saisie : vins célèbres + appellations du catalogue (hors ligne). */
+const SUGGEST = [...new Set([...POPULAR_WINES, ...APPELLATIONS.map((a) => a.n)])];
 
 const IDEAS = ['Bordeaux puissant', 'Chablis minéral', 'Champagne de vigneron', 'Rouge léger pour l’été', 'Vin pour une raclette', 'Moins de 15 € pour un barbecue'];
 
@@ -23,6 +27,7 @@ export default function Recherche() {
   const [focused, setFocused] = useState(false);
   const [more, setMore] = useState(false);
   const [moreError, setMoreError] = useState('');
+  const params = useLocalSearchParams<{ q?: string }>();
 
   const run = async (q: string) => {
     const query = q.trim();
@@ -38,6 +43,14 @@ export default function Recherche() {
       setSearch((s) => ({ ...s, loading: false, error: errorMessage(e) }));
     }
   };
+
+  // Appellation choisie dans le catalogue : on lance sa recherche.
+  useEffect(() => {
+    if (!params.q) return;
+    run(params.q);
+    router.setParams({ q: undefined });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.q]);
 
   const loadMore = async () => {
     if (more) return;
@@ -70,7 +83,7 @@ export default function Recherche() {
   const q = norm(search.query);
   const suggestions =
     focused && q.length > 1
-      ? POPULAR_WINES.filter((w) => norm(w).split(/[\s'-]+/).some((x) => x.startsWith(q)) || norm(w).startsWith(q)).slice(0, 5)
+      ? SUGGEST.filter((w) => norm(w).split(/[\s'-]+/).some((x) => x.startsWith(q)) || norm(w).startsWith(q)).slice(0, 5)
       : [];
 
   const header = (
@@ -132,6 +145,12 @@ export default function Recherche() {
             <Text style={st.scanText}>Importer</Text>
           </Pressable>
         </View>
+
+        <Pressable style={st.browse} onPress={() => router.push('/appellations')}>
+          <MaterialIcons name="menu-book" size={20} color={C.wineDark} />
+          <Text style={st.browseText}>Parcourir les {APPELLATIONS.length} appellations de France</Text>
+          <MaterialIcons name="chevron-right" size={20} color={C.faint} />
+        </Pressable>
 
         {!search.searched && (
           <View style={st.ideas}>
@@ -221,6 +240,19 @@ const st = StyleSheet.create({
     borderColor: '#FBD5D5',
   },
   scanText: { fontFamily: F.sansBold, fontSize: 13, color: C.wine },
+  browse: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: C.bg,
+  },
+  browseText: { flex: 1, fontFamily: F.serif, fontSize: 15, color: C.text },
   ideas: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 16 },
   error: { marginHorizontal: 16, padding: 20, borderRadius: 14, backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FEE2E2', alignItems: 'center', gap: 6 },
 });

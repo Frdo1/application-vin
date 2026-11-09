@@ -29,6 +29,12 @@ scan d'étiquette, fiche détaillée, cave personnelle et fiches de dégustation
   → https://application-vin.vercel.app/confidentialite.html
 - Builds `preview` = pubs de test ; `production` = vraies pubs.
 
+## Catalogue (v2.3)
+
+- **Appellations** (`lib/appellations.ts`) : 367 AOP (liste INAO) et 74 IGP, avec leur région. Écran « Parcourir les appellations », hors ligne, et suggestions de saisie.
+- **Catalogue partagé** (`server/lib/catalog.ts`) : chaque recherche, vin d'étiquette et cote vérifiée par Gemini est rangé dans une base Redis Upstash. La même demande d'un autre utilisateur est servie sans appeler Gemini. Activation : Vercel → Storage → Upstash for Redis, relié au projet (variables `KV_REST_API_URL` / `KV_REST_API_TOKEN`). Sans base, le serveur fonctionne comme avant.
+- Statistiques (vins connus, réponses servies par le catalogue / par Gemini) : `GET https://application-vin.vercel.app/api/sommelier`.
+
 ## Déploiement
 
 1. Vercel : projet `application-vin`, **Root Directory = `server`**, variable `GEMINI_API_KEY`.

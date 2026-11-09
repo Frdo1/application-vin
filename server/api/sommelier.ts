@@ -3,6 +3,7 @@
 // (variable d'environnement GEMINI_API_KEY) et n'apparaît jamais dans l'APK.
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 
+import { catalogOn, findPrice, findSearch, savePrice, saveSearch, saveWines, stats } from '../lib/catalog.js';
 import { cleanWines, extractJSON } from '../lib/json.js';
 import { LABEL_PROMPT, pricePrompt, searchPrompt } from '../lib/prompts.js';
 
@@ -89,7 +90,13 @@ export default async function handler(req: Req, res: Res) {
   if (req.method === 'GET') {
     const q = req.query || {};
     const action = one(q.action);
-    if (!action) return res.status(200).json({ ok: true, model: MODEL, configured: !!process.env.GEMINI_API_KEY });
+    if (!action)
+      return res.status(200).json({
+        ok: true,
+        model: MODEL,
+        configured: !!process.env.GEMINI_API_KEY,
+        catalog: catalogOn() ? await stats() : 'non configuré',
+      });
     if (action !== 'search' && action !== 'price') return res.status(405).json({ error: 'METHOD' });
     body = { action, query: one(q.q), exclude: one(q.x) ? one(q.x).split('|') : [], name: one(q.name), vintage: one(q.vintage) };
   } else if (req.method === 'POST') {
@@ -109,12 +116,18 @@ export default async function handler(req: Req, res: Res) {
         const query = String(body.query || '').trim().slice(0, 200);
         if (!query) return res.status(400).json({ error: 'EMPTY_QUERY' });
         const exclude = Array.isArray(body.exclude) ? body.exclude.map(String).slice(0, 60) : [];
+        const known = await findSearch(query, exclude);
+        if (known) {
+          if (cache) res.setHeader('Cache-Control', CACHE_SEARCH);
+          return res.status(200).json({ wines: known, catalog: true });
+        }
         const { r } = await generate({
           contents: searchPrompt(query, exclude),
           config: { responseMimeType: 'application/json', temperature: 0.6 },
         });
         const wines = cleanWines(extractJSON(r.text || ''));
         if (cache && wines.length) res.setHeader('Cache-Control', CACHE_SEARCH);
+        await saveSearch(query, exclude, wines);
         return res.status(200).json({ wines });
       }
       case 'label': {
@@ -127,25 +140,36 @@ export default async function handler(req: Req, res: Res) {
           },
           35_000,
         );
-        return res.status(200).json({ wines: cleanWines(extractJSON(r.text || ''), 1), sources: sourcesOf(r), verified: grounded });
+        const wines = cleanWines(extractJSON(r.text || ''), 1);
+        if (grounded) await saveWines(wines);
+        return res.status(200).json({ wines, sources: sourcesOf(r), verified: grounded });
       }
       case 'price': {
         const name = String(body.name || '').trim().slice(0, 120);
         const vintage = String(body.vintage || '').match(/\b(18|19|20)\d{2}\b/)?.[0];
         if (!name || !vintage) return res.status(400).json({ error: 'BAD_PRICE_QUERY' });
+        const knownPrice = await findPrice(name, vintage);
+        if (knownPrice) {
+          if (cache) res.setHeader('Cache-Control', CACHE_PRICE);
+          return res.status(200).json({ ...knownPrice, catalog: true });
+        }
         const { r, grounded } = await generate({
           contents: pricePrompt(name, vintage),
           config: { tools: [{ googleSearch: {} }], temperature: 0 },
         });
         const data = extractJSON(r.text || '') as { price?: string; source?: string } | null;
         // On ne garde en cache que les cotes vérifiées par la recherche Google.
-        if (cache && grounded && data?.price) res.setHeader('Cache-Control', CACHE_PRICE);
-        return res.status(200).json({
+        const result = {
           price: String(data?.price || '').slice(0, 40),
           source: String(data?.source || '').slice(0, 60),
           sources: sourcesOf(r),
           verified: grounded,
-        });
+        };
+        if (grounded && result.price) {
+          if (cache) res.setHeader('Cache-Control', CACHE_PRICE);
+          await savePrice(name, vintage, result);
+        }
+        return res.status(200).json(result);
       }
       default:
         return res.status(400).json({ error: 'UNKNOWN_ACTION' });

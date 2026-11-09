@@ -43,6 +43,7 @@ function Root() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="vin" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="degustation" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="appellations" options={{ animation: 'slide_from_right' }} />
       </Stack>
       <PremiumModal />
       <StatusBar style="dark" />
