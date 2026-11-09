@@ -3,8 +3,16 @@
 // la recherche suivante y regarde d'abord, et n'appelle Gemini que si elle n'y trouve rien.
 // Sans base configurée, tout fonctionne comme avant (le catalogue est simplement ignoré).
 
-const URL_ = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '';
-const TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || '';
+// Vercel peut ajouter un préfixe aux variables (ex. STOCKAGE_KV_REST_API_URL) : on accepte tous les cas.
+const env = (suffixes: string[]) => {
+  for (const sfx of suffixes) {
+    const k = Object.keys(process.env).find((n) => n === sfx || n.endsWith('_' + sfx));
+    if (k && process.env[k]) return process.env[k] as string;
+  }
+  return '';
+};
+const URL_ = env(['KV_REST_API_URL', 'UPSTASH_REDIS_REST_URL']);
+const TOKEN = env(['KV_REST_API_TOKEN', 'UPSTASH_REDIS_REST_TOKEN']);
 
 export const catalogOn = () => !!(URL_ && TOKEN);
 
